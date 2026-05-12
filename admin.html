@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DailyCheck — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #0f1014;
+    --card:   #16181d;
+    --s2:     #1c1f26;
+    --border: #252830;
+    --b2:     #2e3240;
+    --text:   #f1f2f5;
+    --t2:     #9399ab;
+    --t3:     #555c6e;
+    --accent: #5b7cf6;
+    --green:  #2dd882;
+    --yellow: #f5b731;
+    --red:    #f0485a;
+    --gold:   #f5c518;
+    --silver: #9ba3b5;
+    --bronze: #c07c3a;
+    --r:      10px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: 28px 20px 64px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 920px; margin: 0 auto; }
+
+  /* ── Top bar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .logo-mark {
+    width: 20px; height: 20px; background: var(--accent);
+    border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 11px; height: 11px; }
+  .logo-tag {
+    font-size: 11px; font-weight: 500; color: var(--t3);
+    background: var(--s2); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 4px; margin-left: 4px;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 4px; }
+  .topbar-date { font-size: 12px; color: var(--t3); }
+
+  /* ── Section label ── */
+  .sec-label {
+    font-size: 11px; font-weight: 500; color: var(--t3);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    margin-bottom: 10px;
+  }
+
+  /* ── Question bar ── */
+  .q-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 20px;
+    animation: up 240ms ease both;
+  }
+  .q-body { flex: 1; min-width: 0; }
+  .q-eyebrow { font-size: 11px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 3px; }
+  .q-text { font-size: 14px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-answer { text-align: right; flex-shrink: 0; }
+  .q-answer-label { font-size: 10px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2px; }
+  .q-answer-val { font-size: 16px; font-weight: 600; color: var(--green); letter-spacing: -0.02em; }
+
+  /* ── Stats ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+    animation: up 240ms 60ms ease both;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px 14px 12px;
+    border-top-width: 2px;
+  }
+  .stat.blue   { border-top-color: var(--accent); }
+  .stat.neutral{ border-top-color: var(--border); }
+  .stat.green  { border-top-color: var(--green); }
+  .stat.yellow { border-top-color: var(--yellow); }
+  .stat.red    { border-top-color: var(--red); }
+  .stat-label { font-size: 11px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; white-space: nowrap; }
+  .stat-val   { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 4px; }
+  .stat-sub   { font-size: 11px; color: var(--t2); }
+  .stat-bar   { margin-top: 10px; height: 2px; background: var(--border); border-radius: 1px; overflow: hidden; }
+  .stat-bar i { display: block; height: 100%; background: var(--accent); border-radius: 1px; width: 0; transition: width 700ms ease; }
+
+  @keyframes up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px 20px;
+    margin-bottom: 12px;
+    animation: up 240ms ease both;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-meta  { font-size: 12px; color: var(--t3); }
+
+  /* ── Scale vis ── */
+  .scale-track {
+    position: relative;
+    height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg, var(--green) 0%, #a0d840 38%, var(--yellow) 62%, #f07040 82%, var(--red) 100%);
+    margin-bottom: 20px;
+  }
+  .vis-dot {
+    position: absolute; top: 50%;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--card);
+    transform: translate(-50%, calc(-50% + var(--off, 0px))) scale(0);
+    transition: transform 280ms cubic-bezier(0.34,1.56,0.64,1);
+    cursor: default; z-index: 1;
+  }
+  .vis-dot.show { transform: translate(-50%, calc(-50% + var(--off, 0px))) scale(1); }
+  .vis-dot:hover .tooltip { opacity: 1; }
+  .tooltip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%);
+    background: var(--s2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px;
+    font-size: 12px; white-space: nowrap;
+    opacity: 0; transition: opacity 120ms; pointer-events: none;
+    display: flex; gap: 5px;
+  }
+  .tooltip .pct { color: var(--t3); font-size: 11px; }
+
+  /* ── Dist rows ── */
+  .dist-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0;
+    border-top: 1px solid var(--border);
+    opacity: 0; animation: up 200ms ease both;
+  }
+  .dist-row:first-child { border-top: none; }
+  .dist-name { width: 96px; font-size: 13px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dist-bar-bg { flex: 1; height: 4px; background: var(--s2); border-radius: 2px; overflow: hidden; }
+  .dist-bar    { height: 100%; border-radius: 2px; width: 0; transition: width 500ms ease; }
+  .dist-pct    { width: 36px; text-align: right; font-size: 13px; font-weight: 500; }
+  .dist-tag    { width: 80px; text-align: right; font-size: 11px; color: var(--t3); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; background: var(--s2); border-radius: 7px; padding: 3px; width: fit-content; }
+  .tab {
+    font-size: 12px; font-weight: 500; color: var(--t2);
+    background: none; border: none; border-radius: 5px;
+    padding: 5px 14px; cursor: pointer;
+    transition: background 150ms, color 150ms;
+    font-family: 'Inter', sans-serif;
+  }
+  .tab.active { background: var(--card); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Rank rows ── */
+  .rank-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0;
+    border-top: 1px solid var(--border);
+    opacity: 0; animation: slideIn 200ms ease both;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+  .rank-row:first-child { border-top: none; }
+  .rank-pos { width: 24px; font-size: 12px; font-weight: 600; color: var(--t3); flex-shrink: 0; }
+  .rank-pos.gold   { color: var(--gold); }
+  .rank-pos.silver { color: var(--silver); }
+  .rank-pos.bronze { color: var(--bronze); }
+  .rank-av {
+    width: 30px; height: 30px; border-radius: 50%;
+    font-size: 11px; font-weight: 600; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .rank-info { flex: 1; min-width: 0; }
+  .rank-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-sub  { font-size: 11px; color: var(--t3); margin-top: 1px; }
+  .rank-badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .rb-good   { background: rgba(45,216,130,0.1); color: var(--green); }
+  .rb-mid    { background: rgba(245,183,49,0.1);  color: var(--yellow); }
+  .rb-far    { background: rgba(240,72,90,0.08);  color: var(--red); }
+  .rank-pts  { font-size: 14px; font-weight: 600; color: var(--accent); letter-spacing: -0.02em; min-width: 48px; text-align: right; flex-shrink: 0; }
+  .rank-pts span { font-size: 10px; font-weight: 400; color: var(--t3); margin-left: 2px; }
+
+  /* ── Empty ── */
+  .empty { font-size: 13px; color: var(--t3); padding: 20px 0; text-align: center; }
+
+  /* ── Dev bar ── */
+  .devbar {
+    margin-top: 36px;
+    padding: 14px 16px;
+    border: 1px dashed var(--border);
+    border-radius: var(--r);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .devbar-label { font-size: 11px; color: var(--t3); margin-right: 4px; }
+  .dev-btn {
+    font-size: 12px; color: var(--t2);
+    background: var(--s2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 12px; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: color 150ms, border-color 150ms;
+  }
+  .dev-btn:hover { color: var(--text); }
+  .dev-btn.del:hover { color: var(--red); }
+  .dev-btn.loading { opacity: 0.4; pointer-events: none; }
+
+  @media (max-width: 700px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .q-bar { flex-wrap: wrap; }
+    .q-answer { text-align: left; }
+    .dist-tag { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="2.5" fill="white"/></svg>
+      </div>
+      DailyCheck
+      <span class="logo-tag">Admin</span>
+    </div>
+    <div class="topbar-right">
+      <span class="live-dot"></span>
+      <span class="topbar-date" id="topbarDate">—</span>
+    </div>
+  </div>
+
+  <!-- Q bar -->
+  <div class="q-bar">
+    <div class="q-body">
+      <div class="q-eyebrow">Heutige Schätzfrage</div>
+      <div class="q-text" id="qText">—</div>
+    </div>
+    <div class="q-answer">
+      <div class="q-answer-label">Antwort</div>
+      <div class="q-answer-val" id="qAns">—</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow"></div>
+
+  <!-- Scale card -->
+  <div class="card" style="animation-delay:120ms">
+    <div class="card-head">
+      <span class="card-title">Auslastung heute</span>
+      <span class="card-meta" id="scaleCount">0 Einträge</span>
+    </div>
+    <div class="scale-track" id="scaleVis"></div>
+    <div id="distList"></div>
+  </div>
+
+  <!-- Ranking card -->
+  <div class="card" style="animation-delay:160ms">
+    <div class="tabs">
+      <button class="tab active" data-t="today">Heute</button>
+      <button class="tab" data-t="total">Gesamt</button>
+    </div>
+    <div id="tab-today"></div>
+    <div id="tab-total" style="display:none;"></div>
+  </div>
+
+  <!-- Dev bar -->
+  <div class="devbar">
+    <span class="devbar-label">Dev</span>
+    <button class="dev-btn" id="demoBtn">Demo-Daten</button>
+    <button class="dev-btn" id="resetBtn">Heute reset</button>
+    <button class="dev-btn del" id="clearBtn">Alles löschen</button>
+    <button class="dev-btn" onclick="location.href='index.html'">User View</button>
+  </div>
+
+</div>
+
+<script src="questions.js"></script>
+<script src="data.js"></script>
+<script>
+(function () {
+
+  /* helpers */
+  function ac(v) {
+    if (v <= 33) return { c: '#2dd882', dim: 'rgba(45,216,130,0.1)' };
+    if (v <= 66) return { c: '#f5b731', dim: 'rgba(245,183,49,0.1)' };
+    return { c: '#f0485a', dim: 'rgba(240,72,90,0.08)' };
+  }
+  function al(v) {
+    return ['Entspannt','Gut ausgelastet','Solide','Etwas viel','Unter Druck','Engpass'][Math.min(5, Math.floor(v/17))];
+  }
+  function ini(n) { return n.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+  function hue(s) { let h=0; for(const c of s) h=(h*31+c.charCodeAt(0))>>>0; return h%360; }
+  function avStyle(n) { const h=hue(n); return `background:linear-gradient(135deg,hsl(${h},65%,52%),hsl(${(h+45)%360},65%,40%));`; }
+  function fmtDate(s) { return new Date(s).toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}); }
+  function easeOut(x) { return 1-Math.pow(1-x,3); }
+  function countUp(el, t, d, sfx) {
+    const t0 = performance.now();
+    (function f(now) {
+      const k = Math.min(1,(now-t0)/d);
+      el.textContent = Math.round(easeOut(k)*t).toLocaleString('de-DE')+(sfx||'');
+      if(k<1) requestAnimationFrame(f);
+    })(performance.now());
+  }
+
+  /* tabs */
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t===btn));
+    const tab = btn.dataset.t;
+    document.getElementById('tab-today').style.display = tab==='today' ? 'block' : 'none';
+    document.getElementById('tab-total').style.display = tab==='total' ? 'block' : 'none';
+  }));
+
+  function render() {
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('topbarDate').textContent = fmtDate(today);
+    const subs = Data.getTodayAll();
+    const lb   = Data.getLeaderboardSorted();
+    const q    = Questions.getToday();
+
+    document.getElementById('qText').textContent = q.q;
+    document.getElementById('qAns').textContent  = q.answer.toLocaleString('de-DE') + ' ' + q.unit;
+
+    const avgV  = subs.length ? Math.round(subs.reduce((a,b)=>a+b.skala,0)/subs.length) : 0;
+    const grn   = subs.filter(s=>s.skala<=33).length;
+    const yel   = subs.filter(s=>s.skala>33&&s.skala<=66).length;
+    const red   = subs.filter(s=>s.skala>66).length;
+    const avgC  = ac(avgV);
+
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat blue">
+        <div class="stat-label">Teilnehmer</div>
+        <div class="stat-val" data-target="${subs.length}" data-sfx="">0</div>
+        <div class="stat-sub">${subs.length===1?'Person':'Personen'} heute</div>
+        <div class="stat-bar"><i data-w="${Math.min(100,subs.length*10)}"></i></div>
+      </div>
+      <div class="stat neutral">
+        <div class="stat-label">Ø Auslastung</div>
+        <div class="stat-val" data-target="${avgV}" data-sfx="%" style="color:${avgC.c}">0%</div>
+        <div class="stat-sub">${al(avgV)}</div>
+      </div>
+      <div class="stat green">
+        <div class="stat-label">Grün</div>
+        <div class="stat-val" data-target="${grn}" data-sfx="" style="color:#2dd882">0</div>
+        <div class="stat-sub">entspannt</div>
+      </div>
+      <div class="stat yellow">
+        <div class="stat-label">Gelb</div>
+        <div class="stat-val" data-target="${yel}" data-sfx="" style="color:#f5b731">0</div>
+        <div class="stat-sub">solide–voll</div>
+      </div>
+      <div class="stat red">
+        <div class="stat-label">Rot</div>
+        <div class="stat-val" data-target="${red}" data-sfx="" style="color:#f0485a">0</div>
+        <div class="stat-sub">engpass</div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      document.querySelectorAll('.stat-val[data-target]').forEach(el =>
+        countUp(el, +el.dataset.target, 700, el.dataset.sfx));
+      document.querySelectorAll('.stat-bar i[data-w]').forEach(el =>
+        requestAnimationFrame(() => { el.style.width = el.dataset.w + '%'; }));
+    }, 120);
+
+    /* scale dots */
+    const vis = document.getElementById('scaleVis');
+    vis.querySelectorAll('.vis-dot').forEach(d => d.remove());
+    const sorted = [...subs].sort((a,b) => a.skala-b.skala);
+    const placed = [];
+    sorted.forEach((s, i) => {
+      let off = 0;
+      for (let j = placed.length-1; j>=0; j--) {
+        if (Math.abs(placed[j].sk - s.skala) < 4) { off = -placed[j].off - (placed[j].off?0:12); break; }
+      }
+      if (Math.abs(off) > 24) off = 0;
+      placed.push({ sk: s.skala, off });
+      const cl = ac(s.skala);
+      const dot = document.createElement('div');
+      dot.className = 'vis-dot';
+      dot.style.cssText = `left:${s.skala}%;background:${cl.c};--off:${off}px;`;
+      dot.innerHTML = `<div class="tooltip"><strong>${s.name}</strong><span class="pct">${s.skala}%</span></div>`;
+      vis.appendChild(dot);
+      setTimeout(() => dot.classList.add('show'), 60 + i*55);
+    });
+    document.getElementById('scaleCount').textContent = subs.length + (subs.length===1?' Eintrag':' Einträge');
+
+    /* dist rows */
+    document.getElementById('distList').innerHTML = sorted.length
+      ? sorted.map((s, i) => {
+          const cl = ac(s.skala);
+          return `<div class="dist-row" style="animation-delay:${i*45}ms">
+            <span class="dist-name">${s.name}</span>
+            <div class="dist-bar-bg"><div class="dist-bar" style="background:${cl.c}" data-w="${s.skala}"></div></div>
+            <span class="dist-pct" style="color:${cl.c}">${s.skala}%</span>
+            <span class="dist-tag">${al(s.skala)}</span>
+          </div>`;
+        }).join('')
+      : '<div class="empty">Noch keine Einträge für heute.</div>';
+    setTimeout(() => {
+      document.querySelectorAll('.dist-bar[data-w]').forEach((b, i) =>
+        setTimeout(() => { b.style.width = b.dataset.w + '%'; }, 300+i*45));
+    }, 80);
+
+    /* today ranking */
+    const ts = subs.map(s => {
+      const diff = Math.abs(s.schaetzung - q.answer);
+      const pct  = q.answer ? Math.round(diff/q.answer*100) : 0;
+      return { ...s, diff, pct };
+    }).sort((a,b) => a.diff-b.diff);
+
+    document.getElementById('tab-today').innerHTML = ts.length
+      ? ts.map((s, i) => {
+          const pc  = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+          const pos = String(i+1).padStart(2,'0');
+          const bc  = s.pct<=10?'rb-good':s.pct<=40?'rb-mid':'rb-far';
+          const bl  = s.pct<=10?'Sehr nah':s.pct<=40?'Nah dran':'Weit weg';
+          return `<div class="rank-row" style="animation-delay:${i*60}ms">
+            <div class="rank-pos ${pc}">${pos}</div>
+            <div class="rank-av" style="${avStyle(s.name)}">${ini(s.name)}</div>
+            <div class="rank-info">
+              <div class="rank-name">${s.name}</div>
+              <div class="rank-sub">${s.schaetzung.toLocaleString('de-DE')} ${q.unit} · Δ ${s.diff.toLocaleString('de-DE')}</div>
+            </div>
+            <span class="rank-badge ${bc}">${bl}</span>
+            <div class="rank-pts">${100-Math.min(100,s.pct)}<span>pts</span></div>
+          </div>`;
+        }).join('')
+      : '<div class="empty">Noch keine Schätzungen heute.</div>';
+
+    document.getElementById('tab-total').innerHTML = lb.length
+      ? lb.map((p, i) => {
+          const pc  = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+          const pos = String(i+1).padStart(2,'0');
+          return `<div class="rank-row" style="animation-delay:${i*60}ms">
+            <div class="rank-pos ${pc}">${pos}</div>
+            <div class="rank-av" style="${avStyle(p.name)}">${ini(p.name)}</div>
+            <div class="rank-info">
+              <div class="rank-name">${p.name}</div>
+              <div class="rank-sub">${p.days} Tag${p.days!==1?'e':''} dabei</div>
+            </div>
+            <span class="rank-badge rb-good">aktiv</span>
+            <div class="rank-pts">${p.points}<span>pts</span></div>
+          </div>`;
+        }).join('')
+      : '<div class="empty">Noch keine Gesamtdaten.</div>';
+  }
+
+  /* dev */
+  const NAMES = ['Lena H.','Markus B.','Sarah M.','Tom K.','Jana F.','Felix W.','Anna R.','Ben S.'];
+  document.getElementById('demoBtn').addEventListener('click', function () {
+    this.classList.add('loading');
+    setTimeout(() => {
+      const today = new Date().toISOString().slice(0,10);
+      const q = Questions.getToday();
+      const entries = NAMES.slice(0, 5+Math.floor(Math.random()*4)).map(name => ({
+        name, skala: Math.floor(Math.random()*100),
+        schaetzung: Math.round(q.answer*(0.4+Math.random()*1.2)), ts: Date.now()
+      }));
+      localStorage.setItem(Data.allKey(today), JSON.stringify(entries));
+      entries.forEach(e => Data._updateLeaderboard(e.name, e.skala, e.schaetzung));
+      this.classList.remove('loading');
+      render();
+    }, 350);
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => { Data.resetToday(); render(); });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (confirm('Alle gespeicherten Daten löschen?')) { Data.clearAll(); render(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
