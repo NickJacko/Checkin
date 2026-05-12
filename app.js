@@ -1,0 +1,2307 @@
+/**
+ * TypeMaster – app.js  (Firebase + Multiplayer Edition)
+ * ======================================================
+ * ES-Modul: <script type="module" src="app.js"> in index.html erforderlich
+ *
+ * Features:
+ *  – Firebase Anonymous Auth + Firestore Cloud-Sync
+ *  – Echtzeit-Bestenliste (WPM / Genauigkeit / Level / Streak)
+ *  – Multiplayer Renn-Räume (bis 8 Spieler, Echtzeit)
+ *  – Online-Präsenz ("Wer ist gerade online")
+ *  – Profil (Name + Avatar)
+ *  – Ergebnis-Vergleich mit Top-10
+ *  – localStorage als Offline-Fallback
+ */
+
+'use strict';
+
+/* ═══════════════════════════════════════════════════════
+   1. FIREBASE IMPORTS & SETUP
+═══════════════════════════════════════════════════════ */
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, signInAnonymously, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  getFirestore,
+  doc, setDoc, getDoc, updateDoc, deleteDoc,
+  collection, query, orderBy, limit, onSnapshot,
+  getDocs, where, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyCa8VcpRe94gevcyQUF_Zc-e-UNRCowDSc',
+  authDomain:        'checkin-9f731.firebaseapp.com',
+  projectId:         'checkin-9f731',
+  storageBucket:     'checkin-9f731.firebasestorage.app',
+  messagingSenderId: '199496624018',
+  appId:             '1:199496624018:web:a06afb19294d0635a8034b',
+};
+
+const firebaseApp  = initializeApp(FIREBASE_CONFIG);
+const auth         = getAuth(firebaseApp);
+const db           = getFirestore(firebaseApp);
+
+/* Global Firebase state */
+let currentUserId     = null;
+let isOnline          = false;
+let presenceRef       = null;
+let presenceInterval  = null;
+let unsubLeaderboard  = null;
+let unsubRaceRoom     = null;
+let currentRaceRoomId = null;
+let isRaceHost        = false;
+let raceCountdownTimer = null;
+let currentLbType     = 'wpm';
+
+/* ═══════════════════════════════════════════════════════
+   2. STATIC DATA
+═══════════════════════════════════════════════════════ */
+
+const AVATARS = ['🐣','🦊','🐺','🦁','🐯','🐸','🤖','👾','🧙','🧛','🦸','🐉','🦄','🐼','🦋','🐧'];
+
+const COURSE_MODULES = [
+  { id:'grundreihe', title:'Grundreihe', icon:'🖐', desc:'Die Heimposition – hier fangen alle Finger an',
+    lessons:[
+      {id:'g1',title:'asdf + jklö',    desc:'Linke & rechte Grundreihe',     chars:'asdf jklö',   type:'chars'},
+      {id:'g2',title:'Grundreihe Mix', desc:'Alle 8 Grundtasten kombiniert', type:'lesson', content:'asdf jklö fjdk saldo flask dalf jfkl ölka das als'},
+      {id:'g3',title:'Häufige Wörter', desc:'Erste Wörter aus der Grundreihe', type:'lesson', content:'das als fal dal als fad alk falls da so als das so falls'},
+      {id:'g4',title:'Fluss',          desc:'Flüssiges Tippen der Grundreihe', type:'lesson', content:'falls das da so als das so falls da als fad alk lads flask'},
+    ]},
+  { id:'obere', title:'Obere Reihe', icon:'⬆', desc:'qwertzuiop – die zweite Fingerposition',
+    lessons:[
+      {id:'o1',title:'qwer + uiop',    desc:'Obere Reihe links & rechts', chars:'qwer uiop', type:'chars'},
+      {id:'o2',title:'Kombination',    desc:'Grund- und obere Reihe', type:'lesson', content:'quiz wir per dort fluid die oase wer top ruf'},
+      {id:'o3',title:'Wörter I',       desc:'Typische deutsche Wörter', type:'lesson', content:'wie das wir die für pro quo per'},
+      {id:'o4',title:'Wörter & Fluss', desc:'Flüssiges Tippen beider Reihen', type:'lesson', content:'aufgabe periode widerspruch protokoll'},
+    ]},
+  { id:'untere', title:'Untere Reihe', icon:'⬇', desc:'yxcvbnm – die dritte Reihe meistern',
+    lessons:[
+      {id:'u1',title:'yxcv + nm',     desc:'Untere Reihe einüben', chars:'yxcv bnm', type:'chars'},
+      {id:'u2',title:'Alle Reihen',   desc:'Alle drei Reihen kombiniert', type:'lesson', content:'bewegung voxel nexus zebra mixen boxen'},
+      {id:'u3',title:'Wörter',        desc:'Häufige Alltagswörter', type:'lesson', content:'von nicht mehr aber nur auch noch zum zur mit'},
+      {id:'u4',title:'Sätze I',       desc:'Erste kurze Sätze', type:'lesson', content:'Das ist ein Test. Wir lernen schnell tippen.'},
+    ]},
+  { id:'grossbuchstaben', title:'Großschreibung', icon:'⇧', desc:'Shift-Taste und Großbuchstaben',
+    lessons:[
+      {id:'gr1',title:'Shift links',   desc:'Großbuchstaben mit linkem Shift',  type:'lesson', content:'Hallo Klaus Ulf Ida Otto Erika Sigrid'},
+      {id:'gr2',title:'Shift rechts',  desc:'Großbuchstaben mit rechtem Shift', type:'lesson', content:'Anna Susi Dieter Winfried Robert Thomas'},
+      {id:'gr3',title:'Sätze',         desc:'Echte Sätze tippen', type:'lesson', content:'Das Wetter ist schön. Die Sonne scheint heute.'},
+      {id:'gr4',title:'Namen & Orte',  desc:'Eigennamen großschreiben', type:'lesson', content:'Berlin, Hamburg, München und Frankfurt sind große Städte.'},
+    ]},
+  { id:'zahlen', title:'Zahlenreihe', icon:'🔢', desc:'Zahlen und die obere Tastenreihe',
+    lessons:[
+      {id:'z1',title:'Zahlen 1–5',     desc:'Linke Hälfte der Zahlenreihe',  chars:'12345', type:'chars'},
+      {id:'z2',title:'Zahlen 6–0',     desc:'Rechte Hälfte der Zahlenreihe', chars:'67890', type:'chars'},
+      {id:'z3',title:'Alle Zahlen',    desc:'Vollständige Zahlenreihe', type:'lesson', content:'1234567890 42 100 2024 0815 365 1337 9000'},
+      {id:'z4',title:'Zahlen in Text', desc:'Zahlen in echten Sätzen', type:'lesson', content:'Im Jahr 2024 gab es 365 Tage. Der Preis beträgt 19,99 Euro.'},
+    ]},
+  { id:'sonderzeichen', title:'Sonderzeichen', icon:'!', desc:'Punkt, Komma, Ausrufezeichen und mehr',
+    lessons:[
+      {id:'s1',title:'Punkt & Komma',   desc:'Die häufigsten Satzzeichen', chars:'.,', type:'chars'},
+      {id:'s2',title:'Frage & Ausrufe', desc:'Fragezeichen und Ausrufezeichen', type:'lesson', content:'Wie geht es dir? Sehr gut! Was machst du? Toll!'},
+      {id:'s3',title:'Klammern',        desc:'Häufige Sonderzeichen', type:'lesson', content:'Das ist (sehr) wichtig - oder nicht?'},
+      {id:'s4',title:'E-Mail & Web',    desc:'Digitale Kommunikation', type:'lesson', content:'info@example.de https://www.test.de user_name'},
+    ]},
+  { id:'woerter', title:'Wörter & Texte', icon:'📝', desc:'Häufige deutsche Wörter fließend tippen',
+    lessons:[
+      {id:'w1',title:'Top 50 Wörter',    desc:'Die häufigsten deutschen Wörter', type:'lesson', content:'der die das und in zu den ist auch von nicht mit dem sind bei auf noch des so werden'},
+      {id:'w2',title:'Alltagsvokabular', desc:'Typische Alltagswörter', type:'lesson', content:'heute morgen gestern Arbeit Familie Schule Computer Handy Internet kaufen gehen kommen'},
+      {id:'w3',title:'Komposita',        desc:'Zusammengesetzte Wörter', type:'lesson', content:'Bundesland Schreibtisch Tastatur Bildschirm Softwareentwicklung Arbeitsplatz'},
+      {id:'w4',title:'Fremdwörter',      desc:'Häufige Fremd- und Lehnwörter', type:'lesson', content:'Software System Manager Online Digital Information Projekt Computer Update'},
+    ]},
+  { id:'saetze', title:'Sätze', icon:'💬', desc:'Vollständige Sätze flüssig tippen',
+    lessons:[
+      {id:'sa1',title:'Einfache Sätze',  desc:'Kurze, klare Sätze', type:'lesson', content:'Heute ist ein guter Tag. Die Übung macht den Meister. Ich lerne schnell.'},
+      {id:'sa2',title:'Alltag',          desc:'Alltagssätze tippen', type:'lesson', content:'Kannst du mir bitte helfen? Ich brauche mehr Zeit. Das funktioniert sehr gut.'},
+      {id:'sa3',title:'E-Mail Phrasen',  desc:'Typische E-Mail-Phrasen', type:'lesson', content:'Mit freundlichen Grüßen. Ich bedanke mich für Ihre Nachricht. Bitte antworten Sie bis Freitag.'},
+      {id:'sa4',title:'Längere Texte',   desc:'Flüssiges Tippen', type:'lesson', content:'Das regelmäßige Üben ist der Schlüssel zum Erfolg. Wer täglich trainiert, wird schnell besser und sicherer.'},
+    ]},
+  { id:'fortgeschritten', title:'Fortgeschritten', icon:'🚀', desc:'Schnelligkeit, Präzision und Ausdauer',
+    lessons:[
+      {id:'f1',title:'Speed Run',    desc:'So schnell wie möglich', type:'lesson', content:'schnell flink agil zügig rasch prompt direkt fix exakt präzise klar sicher flott stark'},
+      {id:'f2',title:'Pangramm',    desc:'Alle Buchstaben des Alphabets', type:'lesson', content:'Franz jagt im komplett verwahrlosten Taxi quer durch Bayern.'},
+      {id:'f3',title:'Code',        desc:'Programmiersyntax tippen', type:'lesson', content:'const name = "Max"; if (x > 0) { return true; } function hello() { console.log("Hallo!"); }'},
+      {id:'f4',title:'Meistertext', desc:'Langer zusammenhängender Text', type:'lesson', content:'Die Fähigkeit, schnell und präzise zu tippen, ist in der digitalen Welt ein wichtiger Vorteil. Mit regelmäßigem Training können Sie Ihre Geschwindigkeit deutlich verbessern.'},
+    ]},
+];
+
+const ALL_LESSONS = COURSE_MODULES.flatMap(m =>
+  m.lessons.map(l => ({ ...l, moduleId: m.id, moduleTitle: m.title }))
+);
+
+const TEXT_POOLS = {
+  common: [
+    'der die das und in zu den ist auch von nicht mit dem sind',
+    'wir haben heute eine wichtige Aufgabe zu erledigen',
+    'schnelles Tippen macht den Alltag im Büro viel einfacher',
+    'die Tastatur ist das wichtigste Werkzeug am Computer',
+    'übung macht den meister und tägliches training zahlt sich aus',
+    'mit beiden händen gleichzeitig zu tippen spart enorm viel zeit',
+    'der fortschritt kommt nicht über nacht sondern durch beharrlichkeit',
+    'jeder anfang ist schwer aber mit geduld wird man besser',
+    'konzentration und ausdauer sind die schlüssel zum erfolg',
+    'schreiben ohne hinzusehen ist das ziel des zehnfingersystems',
+  ],
+  sentences: [
+    'Heute scheint die Sonne und es ist ein wunderschöner Tag.',
+    'Die Schüler lernten fleißig für die kommende Prüfung.',
+    'Im Internet findet man fast alle Informationen der Welt.',
+    'Gute Software macht das Leben der Menschen einfacher.',
+    'Kommunikation ist der Schlüssel zu einer guten Zusammenarbeit.',
+    'Mit etwas Übung wird das Tippen zur zweiten Natur.',
+    'Das neue Projekt startet nächste Woche mit dem ganzen Team.',
+    'Feedback ist wichtig, um sich kontinuierlich zu verbessern.',
+    'Wer regelmäßig übt, der wird mit der Zeit immer besser.',
+    'TypeMaster hilft dir das Zehnfingersystem schnell zu erlernen.',
+  ],
+  numbers: [
+    '1234 5678 9012 3456 7890',
+    'Im Jahr 2024 hat die KI enorme Fortschritte gemacht.',
+    'Die Konferenz findet am 15.03.2025 von 9:00 bis 17:30 Uhr statt.',
+    'Bestellnummer: 4711-XY-2024 Preis: 199,95 Euro',
+    'Pi ist ungefähr 3,14159265358979323846.',
+  ],
+  code: [
+    'const result = array.filter(x => x > 0).map(x => x * 2);',
+    'function greet(name) { return `Hallo, ${name}!`; }',
+    'if (user.isLoggedIn && user.role === "admin") { showDashboard(); }',
+    'SELECT * FROM users WHERE active = 1 ORDER BY created_at DESC;',
+    'git commit -m "feat: add typing speed calculation"',
+  ],
+};
+
+const ACHIEVEMENTS_DEF = [
+  { id:'first_lesson', icon:'🎉', title:'Erster Schritt',      desc:'Erste Lektion abgeschlossen' },
+  { id:'lesson_5',     icon:'📚', title:'Lernender',            desc:'5 Lektionen abgeschlossen' },
+  { id:'lesson_20',    icon:'🎓', title:'Fleißig',              desc:'20 Lektionen abgeschlossen' },
+  { id:'lesson_all',   icon:'🏅', title:'Komplettist',          desc:'Alle Lektionen abgeschlossen' },
+  { id:'streak_3',     icon:'🔥', title:'Auf Kurs',             desc:'3 Tage Streak' },
+  { id:'streak_7',     icon:'🌟', title:'Wochenmeister',        desc:'7 Tage Streak' },
+  { id:'streak_30',    icon:'🔱', title:'Unaufhaltsam',         desc:'30 Tage Streak' },
+  { id:'wpm_30',       icon:'⚡', title:'Flinke Finger',        desc:'30 WPM erreicht' },
+  { id:'wpm_60',       icon:'🚀', title:'Speed-Tipper',         desc:'60 WPM erreicht' },
+  { id:'wpm_100',      icon:'🏎', title:'Tastatur-Ninja',       desc:'100 WPM erreicht' },
+  { id:'acc_100',      icon:'🎯', title:'Perfektionist',        desc:'100% Genauigkeit in einer Lektion' },
+  { id:'acc_95_5',     icon:'💎', title:'Präzisionsschreiber',  desc:'5x über 95% Genauigkeit' },
+  { id:'level_5',      icon:'⭐', title:'Aufsteiger',           desc:'Level 5 erreicht' },
+  { id:'level_10',     icon:'🌠', title:'Profi',                desc:'Level 10 erreicht' },
+  { id:'stars_10',     icon:'✨', title:'Sternsammler',         desc:'10 Sterne gesammelt' },
+  { id:'no_errors',    icon:'🧹', title:'Makellos',             desc:'Lektion ohne Fehler abgeschlossen' },
+  { id:'daily_done',   icon:'📅', title:'Tagessieger',          desc:'Tages-Challenge abgeschlossen' },
+  { id:'marathon',     icon:'🏃', title:'Marathon',             desc:'Mehr als 1000 Zeichen in einer Session' },
+  { id:'race_win',     icon:'🏆', title:'Rennsieger',           desc:'Ein Multiplayer-Rennen gewonnen' },
+  { id:'race_5',       icon:'🎽', title:'Vielrennender',        desc:'5 Multiplayer-Rennen abgeschlossen' },
+  { id:'lb_top10',     icon:'📊', title:'Top-10 Tipper',        desc:'In der WPM-Bestenliste unter den Top 10' },
+];
+
+const RANKS = [
+  { level:1,  title:'Anfänger',        icon:'🐣', xpNeeded:100   },
+  { level:2,  title:'Lernender',        icon:'📝', xpNeeded:250   },
+  { level:3,  title:'Geübter',          icon:'💪', xpNeeded:500   },
+  { level:4,  title:'Flinke Finger',    icon:'⚡', xpNeeded:900   },
+  { level:5,  title:'Tastatur-Freund',  icon:'🖥', xpNeeded:1400  },
+  { level:6,  title:'Speed-Tipper',     icon:'🚀', xpNeeded:2000  },
+  { level:7,  title:'Wortakrobat',      icon:'🎭', xpNeeded:2800  },
+  { level:8,  title:'Textchampion',     icon:'🏆', xpNeeded:3800  },
+  { level:9,  title:'Tipp-Maestro',     icon:'🎵', xpNeeded:5000  },
+  { level:10, title:'Tastatur-Ninja',   icon:'🥷', xpNeeded:6500  },
+  { level:11, title:'Cyberwriter',      icon:'🤖', xpNeeded:8500  },
+  { level:12, title:'Pixel-Poet',       icon:'🌟', xpNeeded:11000 },
+  { level:13, title:'Digitalvirtuose',  icon:'🎯', xpNeeded:14000 },
+  { level:14, title:'Tipp-Legende',     icon:'🏅', xpNeeded:18000 },
+  { level:15, title:'Grand Master',     icon:'👑', xpNeeded:Infinity },
+];
+
+const QUOTES = [
+  '"Der Anfang ist die Hälfte des Ganzen." – Aristoteles',
+  '"Übung macht den Meister." – Deutsches Sprichwort',
+  '"Es ist nie zu spät, neu anzufangen." – C.S. Lewis',
+  '"Der Weg ist das Ziel." – Konfuzius',
+  '"Wer aufhört, besser zu werden, hat aufgehört, gut zu sein." – Philip Rosenthal',
+  '"Erfolg hat drei Buchstaben: TUN." – Johann Wolfgang von Goethe',
+  '"Kleine Schritte führen zu großen Zielen." – Unbekannt',
+  '"Disziplin ist die Brücke zwischen Ziel und Leistung." – Jim Rohn',
+  '"Das Geheimnis liegt im Anfangen." – Mark Twain',
+];
+
+/* ═══════════════════════════════════════════════════════
+   3. STATE & PERSISTENZ
+═══════════════════════════════════════════════════════ */
+const STORAGE_KEY = 'typemaster_v3';
+
+const DEFAULT_STATE = {
+  level: 1, totalXp: 0, currentLevelXp: 0,
+  completedLessons: {}, wpmHistory: [], accHistory: [],
+  errorMap: {}, streak: 0, lastTrainingDate: null,
+  achievements: [],
+  dailyChallenge: { date: null, goal: 0, progress: 0, type: 'words', done: false, desc: '' },
+  highscores: { wpm: 0, acc: 0 },
+  activityLog: {},
+  acc95Count: 0,
+  raceWins: 0, racesPlayed: 0,
+  profile: { name: '', avatar: '🐣', setupDone: false },
+  settings: { theme: 'dark', backspace: true, keyboard: true, fingerLegend: true, sound: true, fontSize: 18 },
+};
+
+let STATE = {};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      STATE = { ...DEFAULT_STATE, ...JSON.parse(raw) };
+      STATE.settings = { ...DEFAULT_STATE.settings, ...STATE.settings };
+      STATE.profile  = { ...DEFAULT_STATE.profile,  ...STATE.profile  };
+    } else {
+      STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    }
+  } catch (e) {
+    STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+  if (currentUserId) syncToCloud();
+}
+
+async function syncToCloud() {
+  if (!currentUserId) return;
+  try {
+    await setDoc(doc(db, 'users', currentUserId), {
+      ...STATE,
+      uid:         currentUserId,
+      displayName: STATE.profile.name  || 'Gast',
+      avatar:      STATE.profile.avatar || '🐣',
+      updatedAt:   serverTimestamp(),
+      lb_wpm:      STATE.highscores.wpm || 0,
+      lb_acc:      STATE.highscores.acc || 0,
+      lb_level:    STATE.level          || 1,
+      lb_streak:   STATE.streak         || 0,
+    });
+  } catch (e) {
+    console.warn('Cloud-Sync fehlgeschlagen:', e.message);
+  }
+}
+
+async function loadFromCloud() {
+  if (!currentUserId) return false;
+  try {
+    const snap = await getDoc(doc(db, 'users', currentUserId));
+    if (snap.exists()) {
+      const data = snap.data();
+      STATE = { ...DEFAULT_STATE, ...data };
+      STATE.settings = { ...DEFAULT_STATE.settings, ...(data.settings || {}) };
+      STATE.profile  = { ...DEFAULT_STATE.profile,  ...(data.profile  || {}) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+      return true;
+    }
+  } catch (e) {
+    console.warn('Cloud-Load fehlgeschlagen:', e.message);
+  }
+  return false;
+}
+
+function resetState() {
+  STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  saveState();
+}
+
+/* ═══════════════════════════════════════════════════════
+   4. ONLINE PRESENCE
+═══════════════════════════════════════════════════════ */
+async function startPresence() {
+  if (!currentUserId) return;
+  presenceRef = doc(db, 'presence', currentUserId);
+  try {
+    await setDoc(presenceRef, {
+      uid:      currentUserId,
+      name:     STATE.profile.name   || 'Gast',
+      avatar:   STATE.profile.avatar || '🐣',
+      level:    STATE.level,
+      wpm:      STATE.highscores.wpm || 0,
+      lastSeen: serverTimestamp(),
+      online:   true,
+    });
+    isOnline = true;
+    updateOnlineUI(true);
+    // Keep-alive every 30 s
+    presenceInterval = setInterval(async () => {
+      if (!currentUserId) return;
+      try { await updateDoc(presenceRef, { lastSeen: serverTimestamp(), online: true }); } catch (_) {}
+    }, 30000);
+  } catch (e) {
+    console.warn('Presence-Fehler:', e.message);
+  }
+}
+
+async function stopPresence() {
+  if (presenceInterval) clearInterval(presenceInterval);
+  if (presenceRef && currentUserId) {
+    try { await updateDoc(presenceRef, { online: false }); } catch (_) {}
+  }
+}
+
+function updateOnlineUI(online) {
+  const ind   = document.getElementById('online-indicator');
+  const label = document.getElementById('oi-label');
+  if (!ind) return;
+  if (online) {
+    ind.classList.add('online');
+    if (label) label.textContent = 'Online';
+  } else {
+    ind.classList.remove('online');
+    if (label) label.textContent = 'Offline';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   5. LEADERBOARD (Echtzeit-Listener)
+═══════════════════════════════════════════════════════ */
+const LB_FIELD_MAP = { wpm: 'lb_wpm', acc: 'lb_acc', level: 'lb_level', streak: 'lb_streak' };
+const LB_UNIT_MAP  = { wpm: ' WPM',   acc: '%',       level: '',         streak: 'd' };
+
+function subscribeLeaderboard(type = 'wpm') {
+  if (unsubLeaderboard) { unsubLeaderboard(); unsubLeaderboard = null; }
+  currentLbType = type;
+  // update tab highlight
+  document.querySelectorAll('.lb-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.lb === type);
+  });
+  const field = LB_FIELD_MAP[type] || 'lb_wpm';
+  const q = query(collection(db, 'users'), orderBy(field, 'desc'), limit(50));
+  unsubLeaderboard = onSnapshot(q, snap => {
+    const rows = snap.docs.map((d, i) => ({ pos: i + 1, uid: d.id, ...d.data() }));
+    renderLeaderboard(rows, type);
+  }, e => console.warn('Leaderboard-Fehler:', e.message));
+}
+
+function renderLeaderboard(rows, type) {
+  const list = document.getElementById('leaderboard-list');
+  if (!list) return;
+  const field = LB_FIELD_MAP[type] || 'lb_wpm';
+  const unit  = LB_UNIT_MAP[type]  || '';
+
+  if (!rows.length) {
+    list.innerHTML = '<p class="empty-hint">Noch keine Einträge in der Bestenliste.</p>';
+    return;
+  }
+
+  let myRank = null;
+  list.innerHTML = rows.map((r, i) => {
+    const isMe = r.uid === currentUserId;
+    if (isMe) myRank = i + 1;
+    const posIcon  = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+    const posClass = i < 3 ? `top-${i + 1}` : '';
+    const rank = RANKS[Math.min((r.lb_level || 1) - 1, RANKS.length - 1)];
+    const val  = r[field] ?? 0;
+    return `<div class="lb-row ${posClass} ${isMe ? 'is-me' : ''}">
+      <div class="lb-pos ${i < 3 ? 'pos-' + (i + 1) : ''}">${posIcon}</div>
+      <div class="lb-avatar">${r.avatar || '🐣'}</div>
+      <div class="lb-info">
+        <div class="lb-name">${escHtml(r.displayName || 'Gast')}${isMe ? '<span class="you-badge">Du</span>' : ''}</div>
+        <div class="lb-sub">${rank?.title || 'Anfänger'} · Level ${r.lb_level || 1}</div>
+      </div>
+      <div class="lb-val">${val}<span class="lb-val-unit">${unit}</span></div>
+    </div>`;
+  }).join('');
+
+  const myRankEl  = document.getElementById('lb-my-rank');
+  const myRankNum = document.getElementById('lb-my-rank-num');
+  if (myRank) {
+    if (myRankEl)  myRankEl.style.display = 'flex';
+    if (myRankNum) myRankNum.textContent   = '#' + myRank;
+    checkAchievement('lb_top10', myRank <= 10);
+  } else {
+    if (myRankEl) myRankEl.style.display = 'none';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   6. ONLINE USERS (für Multiplayer-View)
+═══════════════════════════════════════════════════════ */
+function subscribeOnlineUsers() {
+  const q = query(collection(db, 'presence'), where('online', '==', true), limit(20));
+  onSnapshot(q, snap => {
+    const users = snap.docs
+      .map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => u.uid !== currentUserId);
+    renderOnlineUsers(users);
+    const countEl = document.getElementById('mpq-online-count');
+    if (countEl) {
+      countEl.textContent = users.length > 0
+        ? `${users.length} andere Tipper gerade online!`
+        : 'Sei der Erste – erstelle ein Rennen!';
+    }
+  }, () => {});
+}
+
+function renderOnlineUsers(users) {
+  const container = document.getElementById('mp-online-users');
+  if (!container) return;
+  if (!users.length) {
+    container.innerHTML = '<p class="empty-hint">Keine anderen Nutzer online.</p>';
+    return;
+  }
+  container.innerHTML = users.map(u => `
+    <div class="mp-online-card">
+      <span class="mp-online-avatar">${u.avatar || '🐣'}</span>
+      <div>
+        <div class="mp-online-name">${escHtml(u.name || 'Gast')}</div>
+        <div class="mp-online-rank">Level ${u.level || 1} · ${u.wpm || 0} WPM best</div>
+      </div>
+      <div class="online-dot-small"></div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   7. PUBLIC RACE ROOMS
+═══════════════════════════════════════════════════════ */
+async function loadPublicRooms() {
+  const container = document.getElementById('mp-public-rooms');
+  if (!container) return;
+  container.innerHTML = '<p class="empty-hint">Lade…</p>';
+  try {
+    const q = query(
+      collection(db, 'raceRooms'),
+      where('visibility', '==', 'public'),
+      where('status', 'in', ['waiting', 'starting']),
+      orderBy('createdAt', 'desc'),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    const rooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!rooms.length) {
+      container.innerHTML = '<p class="empty-hint">Keine öffentlichen Räume aktiv – erstelle das erste!</p>';
+      return;
+    }
+    container.innerHTML = rooms.map(r => {
+      const players     = Object.keys(r.players || {}).length;
+      const statusLabel = r.status === 'waiting' ? 'Wartet' : 'Startet gleich';
+      const statusCls   = r.status === 'waiting' ? 'waiting' : '';
+      return `<div class="mp-room-card">
+        <span class="mp-room-icon">🏁</span>
+        <div class="mp-room-info">
+          <div class="mp-room-name">${escHtml(r.name || 'Rennen')}</div>
+          <div class="mp-room-meta">${players}/8 Spieler · ${r.textType || 'Wörter'}</div>
+        </div>
+        <span class="mp-room-status ${statusCls}">${statusLabel}</span>
+        <button class="btn-primary btn-sm" onclick="window._joinRoom('${r.id}')">Beitreten</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = '<p class="empty-hint">Fehler beim Laden der Räume.</p>';
+    console.warn(e);
+  }
+}
+
+// Exposed globally so inline onclick works
+window._joinRoom = (code) => joinRaceRoom(code);
+
+/* ═══════════════════════════════════════════════════════
+   8. RACE ROOM SYSTEM
+═══════════════════════════════════════════════════════ */
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+async function createRaceRoom() {
+  if (!currentUserId) { alert('Bitte warte – Verbindung wird hergestellt.'); return; }
+
+  const nameInput   = document.getElementById('mp-room-name');
+  const textTypeSel = document.getElementById('mp-text-type-sel');
+  const visBtn      = document.querySelector('[data-race-vis].active');
+
+  const roomName   = nameInput?.value.trim() || `${STATE.profile.name || 'Spieler'}s Rennen`;
+  const visibility = visBtn?.dataset.raceVis || 'private';
+  const textType   = textTypeSel?.value || 'common';
+  const code       = generateRoomCode();
+  const text       = generateFreeplayText(textType);
+
+  const roomData = {
+    id: code, name: roomName, code, visibility, textType, text,
+    status:    'waiting',
+    hostUid:   currentUserId,
+    createdAt: serverTimestamp(),
+    players: {
+      [currentUserId]: buildPlayerEntry(),
+    },
+  };
+
+  try {
+    await setDoc(doc(db, 'raceRooms', code), roomData);
+    currentRaceRoomId = code;
+    isRaceHost        = true;
+    openRaceRoom(code);
+  } catch (e) {
+    alert('Fehler beim Erstellen des Raums: ' + e.message);
+  }
+}
+
+function buildPlayerEntry() {
+  return {
+    uid:        currentUserId,
+    name:       STATE.profile.name   || 'Gast',
+    avatar:     STATE.profile.avatar || '🐣',
+    ready:      false,
+    progress:   0,
+    wpm:        0,
+    acc:        100,
+    finished:   false,
+    finishTime: null,
+    pos:        0,
+  };
+}
+
+async function joinRaceRoom(code) {
+  code = String(code).toUpperCase().trim();
+  if (!currentUserId) { alert('Bitte warte – Verbindung wird hergestellt.'); return; }
+  if (code.length !== 6) { alert('Ungültiger Code! Bitte 6 Zeichen eingeben.'); return; }
+
+  try {
+    const roomRef = doc(db, 'raceRooms', code);
+    const snap    = await getDoc(roomRef);
+    if (!snap.exists())                               { alert('Raum nicht gefunden!');       return; }
+    const room = snap.data();
+    if (room.status === 'running')                    { alert('Das Rennen läuft bereits!');  return; }
+    if (Object.keys(room.players || {}).length >= 8)  { alert('Raum ist voll (max 8)!');    return; }
+
+    await updateDoc(roomRef, {
+      [`players.${currentUserId}`]: buildPlayerEntry(),
+    });
+    currentRaceRoomId = code;
+    isRaceHost        = false;
+    openRaceRoom(code);
+  } catch (e) {
+    alert('Fehler beim Beitreten: ' + e.message);
+  }
+}
+
+async function quickMatch() {
+  // Try to find an open public room
+  try {
+    const q = query(
+      collection(db, 'raceRooms'),
+      where('visibility', '==', 'public'),
+      where('status', '==', 'waiting'),
+      limit(5)
+    );
+    const snap  = await getDocs(q);
+    const rooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const open  = rooms.find(r => Object.keys(r.players || {}).length < 8 && r.hostUid !== currentUserId);
+    if (open) { await joinRaceRoom(open.id); return; }
+  } catch (_) {}
+  // None found – create a public room
+  const nameInput = document.getElementById('mp-room-name');
+  if (nameInput) nameInput.value = 'Schnell-Match';
+  // Force visibility to public
+  document.querySelectorAll('[data-race-vis]').forEach(b => b.classList.remove('active'));
+  const pubBtn = document.querySelector('[data-race-vis="public"]');
+  if (pubBtn) pubBtn.classList.add('active');
+  await createRaceRoom();
+}
+
+function openRaceRoom(code) {
+  const overlay = document.getElementById('race-room-overlay');
+  overlay.classList.remove('hidden');
+  document.getElementById('race-room-title').textContent   = `Raum: ${code}`;
+  document.getElementById('race-code-badge').textContent   = `CODE: ${code}`;
+  document.getElementById('race-training-area').classList.add('hidden');
+  document.getElementById('race-result-area').classList.add('hidden');
+  const lobbyEl = document.getElementById('race-lobby-state');
+  if (lobbyEl) lobbyEl.style.display = '';
+  const hostBtn = document.getElementById('btn-start-race-host');
+  if (hostBtn) hostBtn.style.display = isRaceHost ? '' : 'none';
+  subscribeRaceRoom(code);
+}
+
+function subscribeRaceRoom(code) {
+  if (unsubRaceRoom) { unsubRaceRoom(); unsubRaceRoom = null; }
+  unsubRaceRoom = onSnapshot(doc(db, 'raceRooms', code), snap => {
+    if (!snap.exists()) { leaveRaceRoom(); return; }
+    handleRaceSnapshot(snap.data());
+  }, e => console.warn('Race-Listener:', e.message));
+}
+
+function handleRaceSnapshot(room) {
+  renderRacePlayers(room);
+  if (room.status === 'countdown' && !raceCountdownTimer) {
+    startRaceCountdown(room.text);
+  } else if (room.status === 'running') {
+    document.getElementById('race-lobby-state').style.display = 'none';
+    document.getElementById('race-training-area').classList.remove('hidden');
+    document.getElementById('race-countdown-overlay').classList.add('hidden');
+    if (!RaceEngine.isActive()) {
+      RaceEngine.setup(room.text);
+      RaceEngine.start();
+      const inp = document.getElementById('race-hidden-input');
+      if (inp) { inp.value = ''; inp.focus(); }
+      document.getElementById('race-tap-focus')?.classList.add('active');
+    }
+  } else if (room.status === 'finished') {
+    showRaceResult(room);
+  }
+}
+
+function renderRacePlayers(room) {
+  const container = document.getElementById('race-players-list');
+  if (!container) return;
+  const players = Object.values(room.players || {});
+  players.sort((a, b) => b.progress - a.progress || b.wpm - a.wpm);
+
+  const readyCount  = players.filter(p => p.ready).length;
+  const statusText  = document.getElementById('race-status-text');
+  if (statusText && room.status === 'waiting') {
+    statusText.textContent = `${readyCount} / ${players.length} Spieler bereit`;
+  }
+
+  container.innerHTML = players.map((p, i) => {
+    const isMe     = p.uid === currentUserId;
+    const posClass = i === 0 ? 'pos-1' : i === 1 ? 'pos-2' : i === 2 ? 'pos-3' : '';
+    return `<div class="race-player-row ${isMe ? 'is-me' : ''} ${p.finished ? 'finished' : ''}">
+      <div class="rp-pos ${posClass}">${p.finished ? (i + 1) : '–'}</div>
+      <div class="rp-avatar">${p.avatar || '🐣'}</div>
+      <div class="rp-info">
+        <div class="rp-name-row">
+          <span class="rp-name">${escHtml(p.name || 'Gast')}</span>
+          ${isMe ? '<span class="rp-you-tag">Du</span>' : ''}
+        </div>
+        <div class="rp-stats">${p.wpm || 0} WPM · ${p.acc || 100}% Genauigkeit</div>
+      </div>
+      <div class="rp-progress-bar">
+        <div class="rp-progress-fill" style="width:${p.progress || 0}%"></div>
+      </div>
+      <span class="rp-ready ${p.ready ? 'ready-yes' : ''}">${p.ready ? '✓ Bereit' : '⏳ Wartet'}</span>
+    </div>`;
+  }).join('');
+}
+
+function startRaceCountdown(text) {
+  const overlay = document.getElementById('race-countdown-overlay');
+  const numEl   = document.getElementById('rco-number');
+  overlay.classList.remove('hidden');
+  let count = 3;
+  numEl.textContent = count;
+
+  raceCountdownTimer = setInterval(() => {
+    count--;
+    if (count > 0) {
+      numEl.textContent = count;
+      // Restart animation
+      numEl.style.animation = 'none';
+      void numEl.offsetWidth;
+      numEl.style.animation = 'rco-pop .5s cubic-bezier(.4,0,.2,1)';
+    } else {
+      numEl.textContent = 'GO! 🚀';
+      clearInterval(raceCountdownTimer);
+      raceCountdownTimer = null;
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        document.getElementById('race-lobby-state').style.display = 'none';
+        document.getElementById('race-training-area').classList.remove('hidden');
+        RaceEngine.setup(text);
+        RaceEngine.start();
+        const inp = document.getElementById('race-hidden-input');
+        if (inp) { inp.value = ''; inp.focus(); }
+        document.getElementById('race-tap-focus')?.classList.add('active');
+      }, 700);
+    }
+  }, 1000);
+}
+
+async function markReady() {
+  if (!currentUserId || !currentRaceRoomId) return;
+  const roomRef = doc(db, 'raceRooms', currentRaceRoomId);
+  try {
+    await updateDoc(roomRef, { [`players.${currentUserId}.ready`]: true });
+    // Host: auto-start when all ready
+    if (isRaceHost) {
+      const snap    = await getDoc(roomRef);
+      const room    = snap.data();
+      const players = Object.values(room.players || {});
+      if (players.length >= 1 && players.every(p => p.ready)) {
+        await updateDoc(roomRef, { status: 'countdown' });
+      }
+    }
+  } catch (e) { console.warn(e); }
+}
+
+async function hostStartRace() {
+  if (!isRaceHost || !currentRaceRoomId) return;
+  try {
+    await updateDoc(doc(db, 'raceRooms', currentRaceRoomId), { status: 'countdown' });
+  } catch (e) { console.warn(e); }
+}
+
+async function updateRaceProgress(progress, wpm, acc) {
+  if (!currentUserId || !currentRaceRoomId) return;
+  try {
+    await updateDoc(doc(db, 'raceRooms', currentRaceRoomId), {
+      [`players.${currentUserId}.progress`]: progress,
+      [`players.${currentUserId}.wpm`]:      wpm,
+      [`players.${currentUserId}.acc`]:      acc,
+    });
+  } catch (_) {}
+}
+
+async function finishRaceInFirestore(wpm, acc) {
+  if (!currentUserId || !currentRaceRoomId) return;
+  try {
+    const roomRef = doc(db, 'raceRooms', currentRaceRoomId);
+    const snap    = await getDoc(roomRef);
+    if (!snap.exists()) return;
+    const room         = snap.data();
+    const finishedCount = Object.values(room.players || {}).filter(p => p.finished).length;
+    await updateDoc(roomRef, {
+      [`players.${currentUserId}.finished`]:   true,
+      [`players.${currentUserId}.progress`]:   100,
+      [`players.${currentUserId}.wpm`]:        wpm,
+      [`players.${currentUserId}.acc`]:        acc,
+      [`players.${currentUserId}.finishTime`]: Date.now(),
+      [`players.${currentUserId}.pos`]:        finishedCount + 1,
+    });
+    // Host marks race finished when all done
+    if (isRaceHost) {
+      const snap2 = await getDoc(roomRef);
+      if (!snap2.exists()) return;
+      const allDone = Object.values(snap2.data().players || {}).every(p => p.finished);
+      if (allDone) await updateDoc(roomRef, { status: 'finished' });
+    }
+  } catch (e) { console.warn(e); }
+}
+
+function showRaceResult(room) {
+  document.getElementById('race-training-area').classList.add('hidden');
+  const lobbyEl = document.getElementById('race-lobby-state');
+  if (lobbyEl) lobbyEl.style.display = 'none';
+  document.getElementById('race-result-area').classList.remove('hidden');
+
+  const players = Object.values(room.players || {}).sort((a, b) => {
+    if (a.finished && b.finished) return (a.finishTime || 0) - (b.finishTime || 0);
+    if (a.finished)  return -1;
+    if (b.finished)  return  1;
+    return b.progress - a.progress;
+  });
+
+  const medals    = ['🥇', '🥈', '🥉'];
+  const xpByPos   = [100, 60, 40, 20, 10];
+  let myPos = null;
+
+  document.getElementById('race-final-standings').innerHTML = players.map((p, i) => {
+    const isMe = p.uid === currentUserId;
+    if (isMe) myPos = i;
+    return `<div class="race-standing-row pos-${Math.min(i + 1, 4)}">
+      <div class="rs-medal">${medals[i] || '#' + (i + 1)}</div>
+      <div class="rp-avatar">${p.avatar || '🐣'}</div>
+      <div class="rs-player-info">
+        <div class="rs-player-name">${escHtml(p.name || 'Gast')}${isMe ? ' <span class="rp-you-tag">Du</span>' : ''}</div>
+        <div class="rs-player-stats">${p.finished ? `${p.wpm || 0} WPM · ${p.acc || 100}%` : 'Nicht fertig'}</div>
+      </div>
+      <div class="rs-wpm-big">${p.wpm || 0}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('race-result-title').textContent =
+    myPos === 0 ? '🏆 Du hast gewonnen!' : `🏁 Rennen beendet! (Platz ${(myPos ?? 0) + 1})`;
+
+  if (myPos !== null) {
+    const xp = xpByPos[Math.min(myPos, xpByPos.length - 1)] || 10;
+    addXP(xp);
+    STATE.racesPlayed = (STATE.racesPlayed || 0) + 1;
+    if (myPos === 0) {
+      STATE.raceWins = (STATE.raceWins || 0) + 1;
+      checkAchievement('race_win', true);
+      SFX.lessonDone();
+      launchConfetti();
+    }
+    checkAchievement('race_5', STATE.racesPlayed >= 5);
+    saveState();
+  }
+}
+
+async function leaveRaceRoom() {
+  // Stop listeners and engine
+  if (unsubRaceRoom)   { unsubRaceRoom();   unsubRaceRoom   = null; }
+  if (raceCountdownTimer) { clearInterval(raceCountdownTimer); raceCountdownTimer = null; }
+  RaceEngine.stop();
+
+  if (currentUserId && currentRaceRoomId) {
+    try {
+      const roomRef = doc(db, 'raceRooms', currentRaceRoomId);
+      const snap    = await getDoc(roomRef);
+      if (snap.exists()) {
+        const room    = snap.data();
+        const players = { ...room.players };
+        delete players[currentUserId];
+
+        if (Object.keys(players).length === 0) {
+          await deleteDoc(roomRef);
+        } else {
+          const updates = { [`players.${currentUserId}`]: null };
+          if (isRaceHost) updates.hostUid = Object.keys(players)[0];
+          await updateDoc(roomRef, updates);
+        }
+      }
+    } catch (_) {}
+  }
+
+  currentRaceRoomId = null;
+  isRaceHost        = false;
+
+  document.getElementById('race-room-overlay').classList.add('hidden');
+  document.getElementById('race-countdown-overlay').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════
+   9. RACE ENGINE (Echtzeit-Tipp-Instanz für Multiplayer)
+═══════════════════════════════════════════════════════ */
+const RaceEngine = (() => {
+  let text = '', pos = 0, errors = 0;
+  let errorPositions = new Set();
+  let startTime = null, timerInterval = null, active = false;
+  let lastProgressPush = 0;
+
+  function setup(t) {
+    text = t; pos = 0; errors = 0; errorPositions = new Set();
+    startTime = null; active = false;
+    clearInterval(timerInterval);
+    renderDisplay();
+    document.getElementById('race-training-progress').style.width = '0%';
+  }
+
+  function start() {
+    if (active) return;
+    startTime = Date.now();
+    active    = true;
+    timerInterval = setInterval(tick, 250);
+  }
+
+  function stop() {
+    clearInterval(timerInterval);
+    active = false;
+  }
+
+  function isActive() { return active; }
+
+  function tick() {
+    if (!active) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    const wpm     = calcWPM(pos, elapsed);
+    const acc     = calcAcc();
+    const m = Math.floor(elapsed / 60);
+    const s = Math.floor(elapsed) % 60;
+    document.getElementById('race-ls-time').textContent = `${m}:${String(s).padStart(2, '0')}`;
+    document.getElementById('race-ls-wpm').textContent  = wpm;
+    document.getElementById('race-ls-acc').textContent  = acc;
+
+    // Throttle Firestore progress updates to once per second
+    if (Date.now() - lastProgressPush > 1000) {
+      const progress = Math.round((pos / Math.max(text.length, 1)) * 100);
+      updateRaceProgress(progress, wpm, acc);
+      lastProgressPush = Date.now();
+    }
+  }
+
+  function handleKey(char) {
+    if (!active) start();
+    if (pos >= text.length) return;
+    const correct = char === text[pos];
+    if (correct) {
+      SFX.keyCorrect();
+      errorPositions.delete(pos);
+    } else {
+      errors++;
+      errorPositions.add(pos);
+      SFX.keyWrong();
+    }
+    pos++;
+    updateDisplay();
+
+    if (pos >= text.length) {
+      clearInterval(timerInterval);
+      active = false;
+      const elapsed = (Date.now() - startTime) / 1000;
+      const wpm = calcWPM(text.length, elapsed);
+      const acc = calcAcc();
+      finishRaceInFirestore(wpm, acc);
+    }
+  }
+
+  function handleBackspace() {
+    if (!active || pos <= 0) return;
+    pos--;
+    errorPositions.delete(pos);
+    updateDisplay();
+  }
+
+  function calcWPM(chars, sec) { return sec < 1 ? 0 : Math.round((chars / 5) / (sec / 60)); }
+  function calcAcc()            { return pos === 0 ? 100 : Math.round(((pos - errorPositions.size) / pos) * 100); }
+
+  function renderDisplay() {
+    const display = document.getElementById('race-text-display');
+    if (!display) return;
+    display.innerHTML = text.split('').map(ch =>
+      `<span class="char pending${ch === ' ' ? ' space' : ''}">${ch === ' ' ? '&nbsp;' : escHtml(ch)}</span>`
+    ).join('');
+    const first = display.querySelector('.char');
+    if (first) { first.classList.remove('pending'); first.classList.add('current'); }
+  }
+
+  function updateDisplay() {
+    const chars = document.querySelectorAll('#race-text-display .char');
+    chars.forEach((el, i) => {
+      el.className = 'char' + (text[i] === ' ' ? ' space' : '');
+      if (i < pos)       el.classList.add(errorPositions.has(i) ? 'incorrect' : 'correct');
+      else if (i === pos) el.classList.add('current');
+      else               el.classList.add('pending');
+    });
+    const prog = document.getElementById('race-training-progress');
+    if (prog) prog.style.width = (pos / Math.max(text.length, 1) * 100) + '%';
+    const cur = document.querySelector('#race-text-display .char.current');
+    if (cur) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  return { setup, start, stop, isActive, handleKey, handleBackspace };
+})();
+
+/* ═══════════════════════════════════════════════════════
+   10. AUDIO ENGINE (Web Audio API – keine externen Dateien)
+═══════════════════════════════════════════════════════ */
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {}
+  }
+  return audioCtx;
+}
+
+function playTone(freq, dur, type = 'sine', vol = 0.12) {
+  if (!STATE.settings.sound) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + dur);
+  } catch (_) {}
+}
+
+const SFX = {
+  keyCorrect:  () => playTone(600, 0.06, 'sine',     0.08),
+  keyWrong:    () => playTone(180, 0.18, 'sawtooth', 0.12),
+  lessonDone:  () => {
+    playTone(523, 0.1);
+    setTimeout(() => playTone(659, 0.1),  100);
+    setTimeout(() => playTone(784, 0.2),  200);
+  },
+  levelUp:     () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15), i * 100)),
+  achievement: () => { playTone(880, 0.08); setTimeout(() => playTone(1108, 0.15), 80); },
+};
+
+/* ═══════════════════════════════════════════════════════
+   11. CONFETTI
+═══════════════════════════════════════════════════════ */
+function launchConfetti(duration = 2500) {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ['#7c6cf8', '#22d3a0', '#fbbf24', '#f87171', '#60a5fa', '#f97316'];
+  const parts   = Array.from({ length: 120 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height - canvas.height,
+    w: 6  + Math.random() * 8,
+    h: 4  + Math.random() * 5,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * Math.PI * 2,
+    vx:  (Math.random() - 0.5) * 3,
+    vy:  2 + Math.random() * 4,
+    vr:  (Math.random() - 0.5) * 0.15,
+    opacity: 1,
+  }));
+  let start = null;
+  function draw(ts) {
+    if (!start) start = ts;
+    const elapsed = ts - start;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (elapsed > duration * 0.7) p.opacity = Math.max(0, p.opacity - 0.015);
+      ctx.save();
+      ctx.globalAlpha = p.opacity;
+      ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (elapsed < duration + 1000) requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  requestAnimationFrame(draw);
+}
+
+/* ═══════════════════════════════════════════════════════
+   12. VIRTUAL KEYBOARD
+═══════════════════════════════════════════════════════ */
+const KB_ROWS = [
+  [['`','`','4'],['1','1','4'],['2','2','4'],['3','3','3'],['4','4','2'],['5','5','1'],
+   ['6','6','5'],['7','7','5'],['8','8','6'],['9','9','7'],['0','0','8'],['ß','ß','8'],
+   ['´','´','8'],['←','Backspace','8']],
+  [['⇥','Tab','4'],['q','q','4'],['w','w','3'],['e','e','2'],['r','r','1'],['t','t','1'],
+   ['z','z','5'],['u','u','5'],['i','i','6'],['o','o','7'],['p','p','8'],['ü','ü','8'],
+   ['+','+','8'],['#','#','8']],
+  [['⇪','CapsLock','4'],['a','a','4'],['s','s','3'],['d','d','2'],['f','f','1'],['g','g','1'],
+   ['h','h','5'],['j','j','5'],['k','k','6'],['l','l','7'],['ö','ö','8'],['ä','ä','8'],
+   ['↵','Enter','8']],
+  [['⇧','ShiftL','4'],['y','y','4'],['x','x','3'],['c','c','2'],['v','v','1'],['b','b','1'],
+   ['n','n','5'],['m','m','5'],[',',',','6'],['.','.','7'],['-','-','8'],['⇧','ShiftR','8']],
+  [['Strg','CtrlL','4'],['Alt','AltL','4'],['[Leertaste]',' ','t'],
+   ['Alt','AltR','5'],['Strg','CtrlR','5']],
+];
+const KEY_WIDTHS = {
+  '←':'w2','⇥':'w15','⇪':'w225','↵':'w225',
+  '⇧':'w275','Strg':'w15','Alt':'w15','[Leertaste]':'w6',
+};
+
+function buildKeyboard() {
+  const kb = document.getElementById('virtual-keyboard');
+  if (!kb) return;
+  kb.innerHTML = '';
+  KB_ROWS.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'kb-row';
+    row.forEach(([label, val, finger]) => {
+      const key = document.createElement('div');
+      key.className      = `key ${KEY_WIDTHS[label] || ''}`;
+      key.dataset.key    = val.toLowerCase();
+      key.dataset.finger = finger;
+      key.textContent    = label;
+      rowEl.appendChild(key);
+    });
+    kb.appendChild(rowEl);
+  });
+}
+
+function highlightNextKey(char) {
+  document.querySelectorAll('.key.next-key').forEach(k => k.classList.remove('next-key'));
+  if (!char) return;
+  const lower = char.toLowerCase();
+  const key   = document.querySelector(`.key[data-key="${CSS.escape(lower)}"]`);
+  if (key) key.classList.add('next-key');
+  if (char !== lower) {
+    document.querySelectorAll('.key[data-key="shiftl"],.key[data-key="shiftr"]')
+      .forEach(k => k.classList.add('next-key'));
+  }
+}
+
+function flashKey(char, correct) {
+  const key = document.querySelector(`.key[data-key="${CSS.escape(char.toLowerCase())}"]`);
+  if (!key) return;
+  const cls = correct ? 'pressed' : 'pressed-wrong';
+  key.classList.add(cls);
+  setTimeout(() => key.classList.remove(cls), 180);
+}
+
+/* ═══════════════════════════════════════════════════════
+   13. SOLO TRAINING ENGINE
+═══════════════════════════════════════════════════════ */
+const Engine = (() => {
+  let text = '', position = 0, errors = 0;
+  let errorPositions = new Set();
+  let startTime = null, endTime = null, timerInterval = null, active = false;
+  let currentLessonId = null, currentMode = 'normal';
+  let timeLimit = 0, wordGoal = 0, onComplete = null;
+
+  function setup(t, lid, mode = 'normal', opts = {}) {
+    text            = t;
+    position        = 0;
+    errors          = 0;
+    errorPositions  = new Set();
+    startTime       = null;
+    endTime         = null;
+    active          = false;
+    currentLessonId = lid;
+    currentMode     = mode;
+    timeLimit       = opts.timeLimit  || 0;
+    wordGoal        = opts.wordGoal   || 0;
+    onComplete      = opts.onComplete || null;
+    clearInterval(timerInterval);
+    renderTextDisplay();
+    updateLiveStats();
+    highlightNextKey(text[0]);
+  }
+
+  function start() {
+    if (active) return;
+    startTime = Date.now();
+    active    = true;
+    timerInterval = setInterval(tick, 250);
+  }
+
+  function tick() {
+    if (!active) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    updateLiveStats();
+    if (currentMode === 'time' && timeLimit > 0) {
+      const remaining = timeLimit - Math.floor(elapsed);
+      document.getElementById('ls-time').textContent = formatTime(remaining);
+      if (remaining <= 0) finish();
+    } else {
+      document.getElementById('ls-time').textContent = formatTime(Math.floor(elapsed));
+    }
+  }
+
+  function handleKey(char) {
+    if (!active) start();
+    if (position >= text.length) return;
+    const expected = text[position];
+    const correct  = char === expected;
+
+    // Accuracy mode: block on wrong key
+    if (currentMode === 'accuracy' && !correct) {
+      errors++;
+      trackError(expected);
+      SFX.keyWrong();
+      flashKey(expected, false);
+      shakeDisplay();
+      return;
+    }
+
+    if (correct) {
+      SFX.keyCorrect();
+      flashKey(char, true);
+      errorPositions.delete(position);
+    } else {
+      errors++;
+      trackError(expected);
+      SFX.keyWrong();
+      flashKey(char, false);
+      errorPositions.add(position);
+    }
+
+    position++;
+    updateDisplay();
+    updateLiveStats();
+
+    if (position >= text.length)                              { finish(); return; }
+    if (currentMode === 'words' && wordGoal > 0) {
+      const words = text.substring(0, position).split(' ').length - 1;
+      if (words >= wordGoal)                                  { finish(); return; }
+    }
+    highlightNextKey(text[position]);
+  }
+
+  function handleBackspace() {
+    if (!STATE.settings.backspace || !active || position <= 0) return;
+    position--;
+    errorPositions.delete(position);
+    updateDisplay();
+    highlightNextKey(text[position]);
+  }
+
+  function updateDisplay() {
+    const chars = document.querySelectorAll('#text-display .char');
+    chars.forEach((el, i) => {
+      el.className = 'char' + (text[i] === ' ' ? ' space' : '');
+      if (i < position)       el.classList.add(errorPositions.has(i) ? 'incorrect' : 'correct');
+      else if (i === position) el.classList.add('current');
+      else                    el.classList.add('pending');
+    });
+    const cur = document.querySelector('#text-display .char.current');
+    if (cur) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const fill = document.getElementById('training-progress');
+    if (fill) fill.style.width = (position / text.length * 100) + '%';
+  }
+
+  function updateLiveStats() {
+    const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
+    document.getElementById('ls-wpm').textContent   = calcWPM(position, elapsed);
+    document.getElementById('ls-acc').textContent   = calcAcc();
+    document.getElementById('ls-errors').textContent = errors;
+  }
+
+  function calcWPM(chars, sec) { return sec < 1 ? 0 : Math.round((chars / 5) / (sec / 60)); }
+  function calcAcc()            { return position === 0 ? 100 : Math.round(((position - errorPositions.size) / position) * 100); }
+
+  function finish() {
+    clearInterval(timerInterval);
+    active    = false;
+    endTime   = Date.now();
+    const elapsed = (endTime - startTime) / 1000;
+    SFX.lessonDone();
+    if (onComplete) onComplete({
+      wpm: calcWPM(text.length, elapsed),
+      acc: calcAcc(),
+      errors, elapsed, lessonId: currentLessonId, text,
+    });
+  }
+
+  function renderTextDisplay() {
+    const display = document.getElementById('text-display');
+    if (!display) return;
+    display.innerHTML = text.split('').map(ch =>
+      `<span class="char pending${ch === ' ' ? ' space' : ''}">${ch === ' ' ? '&nbsp;' : escHtml(ch)}</span>`
+    ).join('');
+    const first = display.querySelector('.char');
+    if (first) { first.classList.remove('pending'); first.classList.add('current'); }
+  }
+
+  function shakeDisplay() {
+    const wrap = document.querySelector('.text-display-wrap');
+    if (!wrap) return;
+    wrap.classList.add('shake');
+    setTimeout(() => wrap.classList.remove('shake'), 300);
+  }
+
+  function trackError(char) {
+    STATE.errorMap[char] = (STATE.errorMap[char] || 0) + 1;
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(Math.abs(sec) / 60);
+    const s = Math.abs(sec) % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function getText() { return text; }
+
+  return { setup, handleKey, handleBackspace, getText };
+})();
+
+/* ═══════════════════════════════════════════════════════
+   14. XP & LEVELING
+═══════════════════════════════════════════════════════ */
+function calcXpForLesson(wpm, acc, stars) {
+  return Math.round(20 + wpm * 0.5 + stars * 10 + (acc >= 100 ? 30 : acc >= 95 ? 15 : 0));
+}
+
+function calcStars(wpm, acc) {
+  if (acc >= 98 && wpm >= 30) return 3;
+  if (acc >= 90 && wpm >= 15) return 2;
+  return 1;
+}
+
+function addXP(amount) {
+  STATE.totalXp      += amount;
+  STATE.currentLevelXp += amount;
+  const oldLevel = STATE.level;
+
+  while (STATE.level < RANKS.length) {
+    const needed = RANKS[STATE.level - 1].xpNeeded;
+    if (STATE.currentLevelXp >= needed) {
+      STATE.currentLevelXp -= needed;
+      STATE.level++;
+    } else break;
+  }
+
+  if (STATE.level > oldLevel) {
+    showLevelUp(STATE.level);
+    checkAchievement('level_5',  STATE.level >= 5);
+    checkAchievement('level_10', STATE.level >= 10);
+  }
+  updateNavXP();
+}
+
+function getCurrentRank()       { return RANKS[Math.min(STATE.level - 1, RANKS.length - 1)]; }
+function getXPForCurrentLevel() { return RANKS[Math.min(STATE.level - 1, RANKS.length - 1)].xpNeeded; }
+
+/* ═══════════════════════════════════════════════════════
+   15. ACHIEVEMENTS
+═══════════════════════════════════════════════════════ */
+function checkAchievement(id, condition) {
+  if (!condition || STATE.achievements.includes(id)) return;
+  STATE.achievements.push(id);
+  const def = ACHIEVEMENTS_DEF.find(a => a.id === id);
+  if (def) { SFX.achievement(); showAchievementToast(def); }
+  saveState();
+}
+
+function checkAllAchievements(stats) {
+  const done = Object.keys(STATE.completedLessons).length;
+  checkAchievement('first_lesson', done >= 1);
+  checkAchievement('lesson_5',     done >= 5);
+  checkAchievement('lesson_20',    done >= 20);
+  checkAchievement('lesson_all',   done >= ALL_LESSONS.length);
+  checkAchievement('streak_3',     STATE.streak >= 3);
+  checkAchievement('streak_7',     STATE.streak >= 7);
+  checkAchievement('streak_30',    STATE.streak >= 30);
+  checkAchievement('wpm_30',       (STATE.highscores.wpm || 0) >= 30);
+  checkAchievement('wpm_60',       (STATE.highscores.wpm || 0) >= 60);
+  checkAchievement('wpm_100',      (STATE.highscores.wpm || 0) >= 100);
+  if (stats) {
+    checkAchievement('acc_100',  stats.acc    === 100);
+    checkAchievement('no_errors', stats.errors === 0);
+    checkAchievement('marathon',  stats.text && stats.text.length > 1000);
+    if (stats.acc >= 95) {
+      STATE.acc95Count = (STATE.acc95Count || 0) + 1;
+      checkAchievement('acc_95_5', STATE.acc95Count >= 5);
+    }
+  }
+  const totalStars = Object.values(STATE.completedLessons).reduce((s, l) => s + (l.stars || 0), 0);
+  checkAchievement('stars_10', totalStars >= 10);
+}
+
+/* ═══════════════════════════════════════════════════════
+   16. STREAK & DAILY CHALLENGE
+═══════════════════════════════════════════════════════ */
+function updateStreak() {
+  const today = todayStr();
+  const last  = STATE.lastTrainingDate;
+  if (!last)                      STATE.streak = 1;
+  else if (last === today)        { /* same day, no change */ }
+  else if (daysDiff(last, today) === 1) STATE.streak++;
+  else                            STATE.streak = 1;
+  STATE.lastTrainingDate = today;
+}
+
+function initDailyChallenge() {
+  const today = todayStr();
+  if (STATE.dailyChallenge.date === today) return;
+  const day   = new Date().getDay();
+  const types = ['words', 'acc', 'wpm'];
+  const t     = types[day % 3];
+  let goal, desc;
+  if (t === 'words') { goal = [50, 100, 200][day % 3]; desc = `${goal} Wörter tippen`; }
+  else if (t === 'acc') { goal = [95, 97, 100][day % 3]; desc = `${goal}% Genauigkeit erreichen`; }
+  else { goal = [30, 40, 60][day % 3]; desc = `${goal} WPM erreichen`; }
+  STATE.dailyChallenge = { date: today, type: t, goal, progress: 0, done: false, desc };
+  saveState();
+}
+
+function renderDailyChallenge() {
+  const dc = STATE.dailyChallenge;
+  if (!dc) return;
+  const descEl = document.getElementById('dc-desc');
+  const fillEl = document.getElementById('dc-fill');
+  const lblEl  = document.getElementById('dc-label');
+  if (descEl) descEl.textContent  = dc.desc || '';
+  const pct = Math.min((dc.progress / Math.max(dc.goal, 1)) * 100, 100);
+  if (fillEl) fillEl.style.width  = pct + '%';
+  if (lblEl)  lblEl.textContent   = dc.done ? '✅ Erledigt!' : `${Math.round(dc.progress)} / ${dc.goal}`;
+  if (dc.done) {
+    const dcEl = document.querySelector('.daily-challenge');
+    if (dcEl) dcEl.style.borderLeftColor = 'var(--green)';
+  }
+}
+
+function updateDailyChallenge(stats) {
+  const dc = STATE.dailyChallenge;
+  if (!dc || dc.done || dc.date !== todayStr()) return;
+  let val = 0;
+  if (dc.type === 'words') val = Math.round(stats.wpm * (stats.elapsed / 60));
+  if (dc.type === 'acc')   val = stats.acc;
+  if (dc.type === 'wpm')   val = stats.wpm;
+  dc.progress = Math.max(dc.progress, val);
+  if (dc.progress >= dc.goal) {
+    dc.done = true;
+    addXP(50);
+    checkAchievement('daily_done', true);
+  }
+  renderDailyChallenge();
+}
+
+/* ═══════════════════════════════════════════════════════
+   17. CHARTS (Canvas, keine externe Bibliothek)
+═══════════════════════════════════════════════════════ */
+function drawLineChart(canvasId, data, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !data.length) return;
+  const ctx  = canvas.getContext('2d');
+  const W    = canvas.offsetWidth || 300;
+  const H    = canvas.height || 120;
+  canvas.width = W;
+  const pad  = { t: 10, r: 10, b: 25, l: 35 };
+  const cw   = W - pad.l - pad.r;
+  const ch   = H - pad.t - pad.b;
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = data.map(d => d.val);
+  const max  = Math.max(...vals, 1);
+  const min  = Math.min(...vals);
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const gridC = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const txtC  = dark ? '#9898b8' : '#5a5a80';
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (ch / 4) * i;
+    ctx.strokeStyle = gridC; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    ctx.fillStyle = txtC; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(max - (max - min) * (i / 4)), pad.l - 4, y + 3);
+  }
+
+  const pts = data.map((d, i) => ({
+    x: pad.l + (i / Math.max(data.length - 1, 1)) * cw,
+    y: pad.t + ch - ((d.val - min) / Math.max(max - min, 1)) * ch,
+  }));
+
+  if (pts.length > 1) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pad.t + ch);
+    pts.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, pad.t + ch);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${r},${g},${b},0.12)`;
+    ctx.fill();
+  }
+
+  ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  pts.forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   18. TEXT GENERATOR
+═══════════════════════════════════════════════════════ */
+function generateText(lesson) {
+  if (lesson.content) return lesson.content;
+  if (lesson.chars) {
+    const chars = lesson.chars.replace(/\s/g, '').split('');
+    let res = [];
+    for (let i = 0; i < 60; i++) {
+      res.push(chars[i % chars.length]);
+      if ((i + 1) % 5 === 0 && i < 59) res.push(' ');
+    }
+    return res.join('');
+  }
+  return TEXT_POOLS.common[Math.floor(Math.random() * TEXT_POOLS.common.length)];
+}
+
+function generateFreeplayText(textType = 'common') {
+  const pool    = TEXT_POOLS[textType] || TEXT_POOLS.common;
+  const entries = [];
+  let   total   = 0;
+  while (total < 300) {
+    const entry = pool[Math.floor(Math.random() * pool.length)];
+    entries.push(entry);
+    total += entry.length;
+  }
+  return entries.join(' ');
+}
+
+/* ═══════════════════════════════════════════════════════
+   19. VIEW ROUTER
+═══════════════════════════════════════════════════════ */
+let currentView = 'dashboard';
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const view = document.getElementById(`view-${name}`);
+  if (view) view.classList.add('active');
+  const btn = document.querySelector(`.nav-item[data-view="${name}"]`);
+  if (btn)  btn.classList.add('active');
+  currentView = name;
+  closeSidebar();
+
+  if (name === 'dashboard')    renderDashboard();
+  if (name === 'course')       renderCourse();
+  if (name === 'stats')        renderStats();
+  if (name === 'achievements') renderAchievements();
+  if (name === 'leaderboard')  subscribeLeaderboard(currentLbType);
+  if (name === 'multiplayer')  { loadPublicRooms(); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   20. DASHBOARD
+═══════════════════════════════════════════════════════ */
+function renderDashboard() {
+  const rank       = getCurrentRank();
+  const xpForLevel = getXPForCurrentLevel();
+  const hour       = new Date().getHours();
+  const greeting   = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
+  const name       = STATE.profile.name || 'Tipper';
+
+  setEl('greeting',    `${greeting}, ${name}!`);
+  setEl('rank-badge',  rank.icon);
+  setEl('rank-title',  rank.title);
+  setEl('dash-level',  STATE.level);
+  setEl('nav-level',   STATE.level);
+
+  const xpPct = Math.min((STATE.currentLevelXp / xpForLevel) * 100, 100);
+  setStyle('xp-fill', 'width', xpPct + '%');
+  setEl('xp-label', `${STATE.currentLevelXp} / ${xpForLevel} XP`);
+
+  const wpmH = STATE.wpmHistory.slice(-10);
+  const accH = STATE.accHistory.slice(-10);
+  setEl('qs-wpm',    wpmH.length ? Math.round(wpmH.reduce((s, d) => s + d.val, 0) / wpmH.length) + ' WPM' : '–');
+  setEl('qs-acc',    accH.length ? Math.round(accH.reduce((s, d) => s + d.val, 0) / accH.length) + '%'    : '–');
+  setEl('qs-streak', STATE.streak);
+  setEl('qs-done',   Object.keys(STATE.completedLessons).length);
+
+  initDailyChallenge();
+  renderDailyChallenge();
+  renderNextLesson();
+
+  setEl('daily-quote', QUOTES[new Date().getDay() % QUOTES.length]);
+
+  // Sidebar user info
+  const avatar = STATE.profile.avatar || '🐣';
+  setEl('nav-avatar', avatar);
+  setEl('sf-avatar',  avatar);
+  setEl('sf-name',    STATE.profile.name || 'Gast');
+  setEl('sf-rank',    rank.title);
+}
+
+function renderNextLesson() {
+  const next = ALL_LESSONS.find(l => !STATE.completedLessons[l.id]);
+  if (next) {
+    setEl('nl-title', next.title);
+    setEl('nl-desc',  next.desc || '');
+    const btn = document.getElementById('btn-next-lesson');
+    if (btn) btn.dataset.lessonId = next.id;
+  } else {
+    setEl('nl-title', '🎉 Alle Lektionen abgeschlossen!');
+    setEl('nl-desc',  'Weiter im freien Training');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   21. COURSE
+═══════════════════════════════════════════════════════ */
+function renderCourse() {
+  const container = document.getElementById('course-modules');
+  if (!container) return;
+  container.innerHTML = '';
+
+  COURSE_MODULES.forEach((mod, mi) => {
+    const completedCount = mod.lessons.filter(l => STATE.completedLessons[l.id]).length;
+    const block          = document.createElement('div');
+    block.className      = 'module-block';
+    block.innerHTML      = `
+      <div class="module-header">
+        <span class="module-icon">${mod.icon}</span>
+        <div class="module-info"><h3>${mod.title}</h3><p>${mod.desc}</p></div>
+        <span class="module-progress-text">${completedCount}/${mod.lessons.length}</span>
+      </div>
+      <div class="lessons-grid" id="lessons-${mod.id}"></div>`;
+    container.appendChild(block);
+
+    const grid = block.querySelector(`#lessons-${mod.id}`);
+    mod.lessons.forEach((lesson, li) => {
+      const prevDone = li === 0 || !!STATE.completedLessons[mod.lessons[li - 1].id];
+      const unlocked = li === 0 || prevDone || !!STATE.completedLessons[lesson.id];
+      const completed = !!STATE.completedLessons[lesson.id];
+      const stars     = STATE.completedLessons[lesson.id]?.stars || 0;
+
+      const card = document.createElement('div');
+      card.className = `lesson-card ${completed ? 'completed' : ''} ${!unlocked ? 'locked' : ''}`;
+      card.innerHTML = `
+        <div class="lesson-num">${mod.title} · ${li + 1}</div>
+        <h4>${lesson.title}</h4>
+        <p>${lesson.desc || ''}</p>
+        ${completed ? `<div class="lesson-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>` : ''}
+        ${!unlocked  ? '<div class="lesson-lock">🔒</div>' : ''}`;
+
+      if (unlocked) card.addEventListener('click', () => startLesson(lesson.id));
+      grid.appendChild(card);
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   22. TRAINING
+═══════════════════════════════════════════════════════ */
+function startLesson(lessonId) {
+  const lesson = ALL_LESSONS.find(l => l.id === lessonId);
+  if (!lesson) return;
+  setEl('training-title', lesson.title);
+  setEl('training-mode-badge', 'Kurs');
+  setStyle('training-progress', 'width', '0%');
+  showView('training');
+  Engine.setup(generateText(lesson), lessonId, 'normal', {
+    onComplete: stats => onLessonComplete(stats, lesson),
+  });
+  setEl('ls-time', '0:00');
+  focusInput();
+}
+
+function startFreeplay() {
+  const selectedCard = document.querySelector('.fp-card.selected');
+  const mode         = selectedCard?.dataset.mode || 'time';
+  const textType     = document.getElementById('fp-text-type')?.value || 'common';
+  let opts           = {};
+
+  if (mode === 'time') {
+    const ao      = document.querySelector('.fp-card[data-mode="time"] .fp-opt.active');
+    opts.timeLimit = parseInt(ao?.dataset.time || 60);
+  }
+  if (mode === 'words') {
+    const ao      = document.querySelector('.fp-card[data-mode="words"] .fp-opt.active');
+    opts.wordGoal = parseInt(ao?.dataset.words || 25);
+  }
+
+  const modeLabels = { time:`⏱ ${opts.timeLimit||60}s`, words:`📝 ${opts.wordGoal||25} Wörter`, accuracy:'🎯 Genauigkeit', focus:'🧘 Fokus' };
+  setEl('training-title', 'Freies Training');
+  setEl('training-mode-badge', modeLabels[mode] || mode);
+  setStyle('training-progress', 'width', '0%');
+  showView('training');
+
+  opts.onComplete = stats => onLessonComplete(stats, null);
+  Engine.setup(generateFreeplayText(textType), null, mode, opts);
+  setEl('ls-time', mode === 'time' ? `${opts.timeLimit || 60}:00` : '0:00');
+  focusInput();
+}
+
+function onLessonComplete(stats, lesson) {
+  updateStreak();
+  const today = todayStr();
+  STATE.activityLog[today] = (STATE.activityLog[today] || 0) + 1;
+  STATE.wpmHistory.push({ val: stats.wpm, date: today });
+  STATE.accHistory.push({ val: stats.acc, date: today });
+  if (STATE.wpmHistory.length > 100) STATE.wpmHistory.shift();
+  if (STATE.accHistory.length > 100) STATE.accHistory.shift();
+  if (stats.wpm > (STATE.highscores.wpm || 0)) STATE.highscores.wpm = stats.wpm;
+  if (stats.acc > (STATE.highscores.acc || 0)) STATE.highscores.acc = stats.acc;
+
+  const stars    = calcStars(stats.wpm, stats.acc);
+  const xpGained = calcXpForLesson(stats.wpm, stats.acc, stars);
+
+  if (lesson) {
+    const ex = STATE.completedLessons[lesson.id];
+    STATE.completedLessons[lesson.id] = {
+      stars: Math.max(stars, ex?.stars || 0),
+      wpm: stats.wpm, acc: stats.acc, date: today,
+    };
+  }
+
+  addXP(xpGained);
+  updateDailyChallenge(stats);
+  checkAllAchievements({ ...stats, text: Engine.getText() });
+  saveState();
+  showResult({ ...stats, stars, xpGained, lesson });
+}
+
+function showResult({ wpm, acc, errors, elapsed, stars, xpGained, lesson }) {
+  setEl('result-stars', '⭐'.repeat(stars) + '☆'.repeat(3 - stars));
+  const titles = ['Gut gemacht!', 'Super!', 'Fantastisch!', 'Ausgezeichnet!', 'Bravo!'];
+  const msgs   = {
+    3: ['Makellose Leistung! 🎉', 'Du bist ein echtes Tipp-Talent!'],
+    2: ['Sehr gut! Noch etwas Übung.', 'Gute Arbeit!'],
+    1: ['Weiter üben – du schaffst das!'],
+  };
+  setEl('result-title',   titles[Math.floor(Math.random() * titles.length)]);
+  const m = msgs[stars];
+  setEl('result-message', m[Math.floor(Math.random() * m.length)]);
+  setEl('res-wpm',    wpm);
+  setEl('res-acc',    acc + '%');
+  setEl('res-errors', errors);
+  setEl('res-time',   Math.round(elapsed) + 's');
+  setEl('res-xp-val', xpGained);
+
+  const fb = [];
+  if (acc >= 98)      fb.push('✅ Ausgezeichnete Genauigkeit!');
+  else if (acc >= 90) fb.push('✅ Gute Genauigkeit.');
+  else                fb.push('⚠ Tippe langsamer und präziser – Genauigkeit vor Tempo.');
+  if (wpm >= 40)      fb.push('✅ Sehr flottes Tempo!');
+  else                fb.push('💡 Tipp: Halte die Finger auf der Grundreihe und schaue nicht auf die Tastatur.');
+  if (errors === 0)   fb.push('🎯 Keine einzigen Fehler – absolut makellos!');
+  const fbEl = document.getElementById('result-feedback');
+  if (fbEl) fbEl.innerHTML = fb.map(f => `<p>${f}</p>`).join('');
+
+  const topErrors = Object.entries(STATE.errorMap)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5).filter(([, c]) => c > 0);
+  const probEl = document.getElementById('result-problem-keys');
+  if (topErrors.length) {
+    if (probEl) probEl.style.display = 'block';
+    setEl('problem-keys-list', topErrors.map(([ch, cnt]) =>
+      `<span class="prob-key">${ch === ' ' ? '␣' : escHtml(ch)} (${cnt}×)</span>`
+    ).join(''));
+  } else {
+    if (probEl) probEl.style.display = 'none';
+  }
+
+  const next = lesson ? ALL_LESSONS.find((l, i) => ALL_LESSONS[i - 1]?.id === lesson.id) : null;
+  const nextBtn  = document.getElementById('btn-next-after-result');
+  const retryBtn = document.getElementById('btn-retry');
+  if (nextBtn)  nextBtn.dataset.nextLessonId = next?.id || '';
+  if (retryBtn) retryBtn.dataset.lessonId    = lesson?.id || '';
+
+  showResultVsLeaderboard(wpm, acc);
+  showView('result');
+  if (stars === 3) { setTimeout(launchConfetti, 200); SFX.achievement(); }
+  updateNavXP();
+}
+
+async function showResultVsLeaderboard(wpm, acc) {
+  const vsEl      = document.getElementById('result-vs');
+  const vsContent = document.getElementById('result-vs-content');
+  if (!vsEl || !vsContent || !isOnline) { if (vsEl) vsEl.style.display = 'none'; return; }
+  try {
+    const q    = query(collection(db, 'users'), orderBy('lb_wpm', 'desc'), limit(10));
+    const snap = await getDocs(q);
+    const top10 = snap.docs.map(d => d.data());
+    if (!top10.length) { vsEl.style.display = 'none'; return; }
+    const topWpm   = top10[0]?.lb_wpm || 0;
+    const avgWpm   = Math.round(top10.reduce((s, u) => s + (u.lb_wpm || 0), 0) / top10.length);
+    const betterThan = top10.filter(u => (u.lb_wpm || 0) < wpm).length;
+    vsContent.innerHTML = `
+      <div class="result-vs-row"><span>Dein WPM</span><span class="${wpm >= avgWpm ? 'better' : 'worse'}">${wpm}</span></div>
+      <div class="result-vs-row"><span>Top-1 WPM</span><span>${topWpm}</span></div>
+      <div class="result-vs-row"><span>Ø Top-10 WPM</span><span>${avgWpm}</span></div>
+      <div class="result-vs-row"><span>Du schlägst</span><span class="${betterThan > 0 ? 'better' : ''}">${betterThan} / 10 Top-Tipper</span></div>`;
+    vsEl.style.display = 'block';
+  } catch (_) {
+    if (vsEl) vsEl.style.display = 'none';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   23. STATS VIEW
+═══════════════════════════════════════════════════════ */
+function renderStats() {
+  drawLineChart('chart-wpm', STATE.wpmHistory.slice(-20), '#7c6cf8');
+  drawLineChart('chart-acc', STATE.accHistory.slice(-20), '#22d3a0');
+
+  const heatmap = document.getElementById('problem-heatmap');
+  if (heatmap) {
+    heatmap.innerHTML = '';
+    const sorted = Object.entries(STATE.errorMap)
+      .sort((a, b) => b[1] - a[1]).slice(0, 30).filter(([, c]) => c > 0);
+    if (!sorted.length) {
+      heatmap.innerHTML = '<span style="color:var(--text-3)">Noch keine Fehler aufgezeichnet.</span>';
+    } else {
+      sorted.forEach(([char, count]) => {
+        const max  = sorted[0][1];
+        const cls  = count > max * 0.66 ? 'heat-3' : count > max * 0.33 ? 'heat-2' : 'heat-1';
+        const el   = document.createElement('div');
+        el.className = `heat-key ${cls}`;
+        el.textContent = char === ' ' ? '␣' : char;
+        el.title       = `${count}× Fehler`;
+        heatmap.appendChild(el);
+      });
+    }
+  }
+
+  setEl('personal-bests', `
+    <div class="pb-row"><span>Höchste WPM</span><span>${STATE.highscores.wpm || 0} WPM</span></div>
+    <div class="pb-row"><span>Höchste Genauigkeit</span><span>${STATE.highscores.acc || 0}%</span></div>
+    <div class="pb-row"><span>Längste Streak</span><span>${STATE.streak} Tage</span></div>
+    <div class="pb-row"><span>Abgeschlossene Lektionen</span><span>${Object.keys(STATE.completedLessons).length}</span></div>
+    <div class="pb-row"><span>Gesamte XP</span><span>${STATE.totalXp}</span></div>
+    <div class="pb-row"><span>Level</span><span>${STATE.level}</span></div>
+    <div class="pb-row"><span>Rennen gewonnen</span><span>${STATE.raceWins || 0}</span></div>
+    <div class="pb-row"><span>Rennen gespielt</span><span>${STATE.racesPlayed || 0}</span></div>`);
+
+  const ag    = document.getElementById('activity-grid');
+  const today = todayStr();
+  if (ag) {
+    ag.innerHTML = '';
+    for (let i = 89; i >= 0; i--) {
+      const d   = new Date(); d.setDate(d.getDate() - i);
+      const ds  = d.toISOString().slice(0, 10);
+      const cnt = STATE.activityLog[ds] || 0;
+      const div = document.createElement('div');
+      div.className = `ag-day${cnt > 0 ? ` active-${Math.min(cnt, 4)}` : ''}${ds === today ? ' today' : ''}`;
+      div.title     = `${ds}: ${cnt} Sessions`;
+      ag.appendChild(div);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   24. ACHIEVEMENTS VIEW
+═══════════════════════════════════════════════════════ */
+function renderAchievements() {
+  const grid = document.getElementById('achievements-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  setEl('ach-progress-text', `${STATE.achievements.length} von ${ACHIEVEMENTS_DEF.length} freigeschaltet`);
+  ACHIEVEMENTS_DEF.forEach(ach => {
+    const unlocked = STATE.achievements.includes(ach.id);
+    const card     = document.createElement('div');
+    card.className = `ach-card ${unlocked ? 'unlocked' : 'locked'}`;
+    card.innerHTML = `
+      <span class="ach-icon">${ach.icon}</span>
+      <h4>${ach.title}</h4>
+      <p>${ach.desc}</p>
+      ${unlocked ? '<span class="ach-unlocked-tag">✓ Freigeschaltet</span>' : ''}`;
+    grid.appendChild(card);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   25. PROFILE SETUP
+═══════════════════════════════════════════════════════ */
+let tempAvatar = '🐣';
+
+function buildAvatarGrid(containerId, currentAvatar, onSelect) {
+  const grid = document.getElementById(containerId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  AVATARS.forEach(av => {
+    const btn = document.createElement('button');
+    btn.className   = `avatar-opt${av === (currentAvatar || '🐣') ? ' selected' : ''}`;
+    btn.textContent = av;
+    btn.addEventListener('click', () => {
+      grid.querySelectorAll('.avatar-opt').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      onSelect(av);
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function showProfileSetup() {
+  tempAvatar = STATE.profile.avatar || '🐣';
+  buildAvatarGrid('avatar-grid', tempAvatar, av => { tempAvatar = av; });
+  const nameInput = document.getElementById('profile-name-input');
+  if (nameInput) nameInput.value = STATE.profile.name || '';
+  document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function saveProfile() {
+  const nameInput = document.getElementById('profile-name-input');
+  const name = nameInput?.value.trim();
+  if (!name) { nameInput?.focus(); return; }
+  STATE.profile.name      = name;
+  STATE.profile.avatar    = tempAvatar;
+  STATE.profile.setupDone = true;
+  document.getElementById('profile-modal').classList.add('hidden');
+  saveState();
+  updateNavXP();
+  renderDashboard();
+  // Update presence name
+  if (presenceRef && currentUserId) {
+    updateDoc(presenceRef, { name, avatar: tempAvatar }).catch(() => {});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   26. NAV XP UPDATE
+═══════════════════════════════════════════════════════ */
+function updateNavXP() {
+  const xpForLevel = getXPForCurrentLevel();
+  const pct        = Math.min((STATE.currentLevelXp / xpForLevel) * 100, 100);
+  setEl('nav-level',  STATE.level);
+  setEl('nav-xp',     STATE.totalXp);
+  setEl('nav-streak', STATE.streak);
+  setStyle('nav-xp-fill', 'width', pct + '%');
+  setEl('nav-avatar', STATE.profile.avatar || '🐣');
+}
+
+/* ═══════════════════════════════════════════════════════
+   27. TOASTS & OVERLAYS
+═══════════════════════════════════════════════════════ */
+function showAchievementToast(ach) {
+  const toast = document.getElementById('achievement-toast');
+  if (!toast) return;
+  setEl('at-icon', ach.icon);
+  setEl('at-name', ach.title);
+  toast.classList.remove('hidden', 'toast-out');
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.classList.add('hidden'), 400);
+  }, 3500);
+}
+
+function showLevelUp(level) {
+  const rank = RANKS[Math.min(level - 1, RANKS.length - 1)];
+  setEl('lu-level', level);
+  setEl('lu-rank',  `${rank.icon} ${rank.title}`);
+  document.getElementById('levelup-overlay').classList.remove('hidden');
+  SFX.levelUp();
+}
+
+/* ═══════════════════════════════════════════════════════
+   28. SETTINGS
+═══════════════════════════════════════════════════════ */
+function applySettings() {
+  const s = STATE.settings;
+  document.documentElement.dataset.theme = s.theme;
+  document.getElementById('set-dark')?.classList.toggle('active',  s.theme === 'dark');
+  document.getElementById('set-light')?.classList.toggle('active', s.theme === 'light');
+  const themeBtn = document.getElementById('btn-theme');
+  if (themeBtn) themeBtn.textContent = s.theme === 'dark' ? '🌙' : '☀️';
+
+  document.documentElement.style.setProperty('--training-font-size', s.fontSize + 'px');
+  const fsInput = document.getElementById('set-fontsize');
+  if (fsInput) fsInput.value = s.fontSize;
+  setEl('set-fontsize-val', s.fontSize + 'px');
+
+  const setChk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+  setChk('set-backspace',    s.backspace);
+  setChk('set-keyboard',     s.keyboard);
+  setChk('set-fingerlegend', s.fingerLegend);
+  setChk('set-sound',        s.sound);
+
+  const kbc = document.getElementById('keyboard-container');
+  if (kbc) kbc.style.display = s.keyboard ? '' : 'none';
+  const fl = document.querySelector('.finger-legend');
+  if (fl) fl.style.display = s.fingerLegend ? '' : 'none';
+  const soundBtn = document.getElementById('btn-sound');
+  if (soundBtn) soundBtn.textContent = s.sound ? '🔊' : '🔇';
+
+  const usernameInput = document.getElementById('set-username');
+  if (usernameInput) usernameInput.value = STATE.profile.name || '';
+}
+
+/* ═══════════════════════════════════════════════════════
+   29. EXPORT / IMPORT
+═══════════════════════════════════════════════════════ */
+function exportProgress() {
+  const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `typemaster_backup_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importProgress(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      STATE          = { ...DEFAULT_STATE, ...data };
+      STATE.settings = { ...DEFAULT_STATE.settings, ...(data.settings || {}) };
+      STATE.profile  = { ...DEFAULT_STATE.profile,  ...(data.profile  || {}) };
+      saveState();
+      applySettings();
+      renderDashboard();
+      updateNavXP();
+      alert('✅ Fortschritt erfolgreich importiert!');
+    } catch {
+      alert('❌ Fehler beim Importieren: Ungültige Datei.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ═══════════════════════════════════════════════════════
+   30. HELPERS
+═══════════════════════════════════════════════════════ */
+function todayStr()       { return new Date().toISOString().slice(0, 10); }
+function daysDiff(a, b)   { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function escHtml(s)       { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function closeSidebar()   { document.getElementById('sidebar')?.classList.remove('open'); }
+function setEl(id, html)  { const el = document.getElementById(id); if (el) el.innerHTML = html; }
+function setStyle(id, prop, val) { const el = document.getElementById(id); if (el) el.style[prop] = val; }
+
+function focusInput() {
+  const inp = document.getElementById('hidden-input');
+  if (inp) { inp.value = ''; inp.focus(); }
+  document.getElementById('tap-to-focus')?.classList.add('active');
+}
+
+/* CSS shake (injected once) */
+const shakeStyle = document.createElement('style');
+shakeStyle.textContent = `
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+  .shake{animation:shake .28s ease;border-color:var(--red)!important}
+`;
+document.head.appendChild(shakeStyle);
+
+/* ═══════════════════════════════════════════════════════
+   31. EVENT BINDING
+═══════════════════════════════════════════════════════ */
+function bindEvents() {
+  /* Navigation */
+  document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => showView(btn.dataset.view));
+  });
+  document.getElementById('hamburger')?.addEventListener('click', () => {
+    document.getElementById('sidebar')?.classList.toggle('open');
+  });
+  document.getElementById('main-content')?.addEventListener('click', closeSidebar);
+
+  /* Theme / Sound */
+  document.getElementById('btn-theme')?.addEventListener('click', () => {
+    STATE.settings.theme = STATE.settings.theme === 'dark' ? 'light' : 'dark';
+    applySettings(); saveState();
+  });
+  document.getElementById('btn-sound')?.addEventListener('click', () => {
+    STATE.settings.sound = !STATE.settings.sound;
+    applySettings(); saveState();
+  });
+
+  /* Avatar → profile modal */
+  document.getElementById('nav-avatar')?.addEventListener('click', () => {
+    if (!STATE.profile.setupDone) showProfileSetup(); else showView('settings');
+  });
+
+  /* Profile modal */
+  document.getElementById('btn-save-profile')?.addEventListener('click', saveProfile);
+  document.getElementById('profile-name-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveProfile();
+  });
+
+  /* Dashboard */
+  document.getElementById('btn-next-lesson')?.addEventListener('click', e => {
+    const id = e.currentTarget.dataset.lessonId;
+    if (id) startLesson(id); else showView('freeplay');
+  });
+  document.getElementById('btn-quick-race')?.addEventListener('click', () => showView('multiplayer'));
+
+  /* Solo training */
+  document.getElementById('hidden-input')?.addEventListener('keydown', e => {
+    e.preventDefault();
+    if (e.key === 'Backspace') { Engine.handleBackspace(); return; }
+    if (['Shift','Control','Alt','Meta','CapsLock','Tab','Escape'].includes(e.key)) return;
+    if (e.key.length === 1) Engine.handleKey(e.key);
+  });
+  document.getElementById('tap-to-focus')?.addEventListener('click', focusInput);
+
+  /* Result */
+  document.getElementById('btn-retry')?.addEventListener('click', e => {
+    const id = e.currentTarget.dataset.lessonId;
+    if (id) startLesson(id); else startFreeplay();
+  });
+  document.getElementById('btn-next-after-result')?.addEventListener('click', e => {
+    const id = e.currentTarget.dataset.nextLessonId;
+    if (id) startLesson(id); else showView('course');
+  });
+  document.getElementById('btn-challenge-friend')?.addEventListener('click', () => quickMatch());
+
+  /* Back / Restart */
+  document.getElementById('btn-back-course')?.addEventListener('click', () => showView('course'));
+  document.getElementById('btn-restart-lesson')?.addEventListener('click', () => {
+    const title  = document.getElementById('training-title')?.textContent;
+    const lesson = ALL_LESSONS.find(l => l.title === title);
+    if (lesson) startLesson(lesson.id); else startFreeplay();
+  });
+
+  /* Free play card selection */
+  document.querySelectorAll('.fp-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.classList.contains('fp-opt')) return;
+      document.querySelectorAll('.fp-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+  document.querySelectorAll('.fp-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      opt.closest('.fp-options')?.querySelectorAll('.fp-opt').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+    });
+  });
+  document.getElementById('btn-start-freeplay')?.addEventListener('click', startFreeplay);
+
+  /* Multiplayer view */
+  document.getElementById('btn-mp-create')?.addEventListener('click', createRaceRoom);
+  document.getElementById('btn-mp-join-code')?.addEventListener('click', () => {
+    const code = document.getElementById('mp-join-code-input')?.value;
+    if (code) joinRaceRoom(code);
+  });
+  document.getElementById('mp-join-code-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const code = e.target.value; if (code) joinRaceRoom(code);
+    }
+  });
+  document.getElementById('btn-mp-quickmatch')?.addEventListener('click', quickMatch);
+  document.getElementById('btn-mp-refresh')?.addEventListener('click', loadPublicRooms);
+
+  /* Race room visibility toggle (in MP create form) */
+  document.querySelectorAll('[data-race-vis]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      btn.closest('.fp-options')?.querySelectorAll('[data-race-vis]')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  /* Race room overlay */
+  document.getElementById('btn-leave-race')?.addEventListener('click',       leaveRaceRoom);
+  document.getElementById('btn-ready-race')?.addEventListener('click',       markReady);
+  document.getElementById('btn-start-race-host')?.addEventListener('click',  hostStartRace);
+  document.getElementById('btn-race-rematch')?.addEventListener('click',     async () => {
+    if (!isRaceHost || !currentRaceRoomId) return;
+    try {
+      const roomRef = doc(db, 'raceRooms', currentRaceRoomId);
+      const snap    = await getDoc(roomRef);
+      if (!snap.exists()) return;
+      const resetPlayers = {};
+      Object.keys(snap.data().players || {}).forEach(uid => {
+        resetPlayers[`players.${uid}.ready`]    = false;
+        resetPlayers[`players.${uid}.progress`] = 0;
+        resetPlayers[`players.${uid}.wpm`]      = 0;
+        resetPlayers[`players.${uid}.acc`]      = 100;
+        resetPlayers[`players.${uid}.finished`] = false;
+        resetPlayers[`players.${uid}.pos`]      = 0;
+        resetPlayers[`players.${uid}.finishTime`] = null;
+      });
+      await updateDoc(roomRef, {
+        status: 'waiting',
+        text:   generateFreeplayText('common'),
+        ...resetPlayers,
+      });
+      document.getElementById('race-result-area').classList.add('hidden');
+      document.getElementById('race-lobby-state').style.display = '';
+      document.getElementById('race-training-area').classList.add('hidden');
+      RaceEngine.stop();
+    } catch (e) { console.warn(e); }
+  });
+  document.getElementById('btn-race-leave-after')?.addEventListener('click', leaveRaceRoom);
+  document.getElementById('btn-copy-race-code')?.addEventListener('click',   () => {
+    navigator.clipboard.writeText(currentRaceRoomId || '').then(() => {
+      const btn = document.getElementById('btn-copy-race-code');
+      if (btn) { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '📋'; }, 1500); }
+    }).catch(() => {});
+  });
+
+  /* Race training input */
+  document.getElementById('race-tap-focus')?.addEventListener('click', () => {
+    const inp = document.getElementById('race-hidden-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+    document.getElementById('race-tap-focus')?.classList.add('active');
+  });
+  document.getElementById('race-hidden-input')?.addEventListener('keydown', e => {
+    e.preventDefault();
+    if (e.key === 'Backspace') { RaceEngine.handleBackspace(); return; }
+    if (['Shift','Control','Alt','Meta','CapsLock','Tab','Escape'].includes(e.key)) return;
+    if (e.key.length === 1) RaceEngine.handleKey(e.key);
+  });
+
+  /* Leaderboard tabs */
+  document.querySelectorAll('.lb-tab').forEach(tab => {
+    tab.addEventListener('click', () => subscribeLeaderboard(tab.dataset.lb));
+  });
+
+  /* Level Up close */
+  document.getElementById('btn-lu-close')?.addEventListener('click', () => {
+    document.getElementById('levelup-overlay').classList.add('hidden');
+  });
+
+  /* Settings */
+  document.getElementById('set-dark')?.addEventListener('click', () => {
+    STATE.settings.theme = 'dark'; applySettings(); saveState();
+  });
+  document.getElementById('set-light')?.addEventListener('click', () => {
+    STATE.settings.theme = 'light'; applySettings(); saveState();
+  });
+  document.getElementById('set-fontsize')?.addEventListener('input', e => {
+    STATE.settings.fontSize = parseInt(e.target.value);
+    setEl('set-fontsize-val', STATE.settings.fontSize + 'px');
+    document.documentElement.style.setProperty('--training-font-size', STATE.settings.fontSize + 'px');
+  });
+  document.getElementById('set-fontsize')?.addEventListener('change', saveState);
+  document.getElementById('set-backspace')?.addEventListener('change',    e => { STATE.settings.backspace    = e.target.checked; saveState(); });
+  document.getElementById('set-keyboard')?.addEventListener('change',     e => { STATE.settings.keyboard     = e.target.checked; applySettings(); saveState(); });
+  document.getElementById('set-fingerlegend')?.addEventListener('change', e => { STATE.settings.fingerLegend = e.target.checked; applySettings(); saveState(); });
+  document.getElementById('set-sound')?.addEventListener('change',        e => { STATE.settings.sound        = e.target.checked; applySettings(); saveState(); });
+
+  /* Username save in settings */
+  document.getElementById('btn-save-username')?.addEventListener('click', () => {
+    const val = document.getElementById('set-username')?.value.trim();
+    if (!val) return;
+    STATE.profile.name = val;
+    saveState();
+    renderDashboard();
+    alert('✅ Name gespeichert!');
+  });
+
+  /* Avatar in settings */
+  buildAvatarGrid('avatar-picker-settings', STATE.profile.avatar, av => {
+    STATE.profile.avatar = av; saveState(); updateNavXP();
+    setEl('nav-avatar', av); setEl('sf-avatar', av);
+  });
+
+  /* Export / Import / Reset */
+  document.getElementById('btn-export')?.addEventListener('click', exportProgress);
+  document.getElementById('btn-import')?.addEventListener('click', () => {
+    document.getElementById('import-file')?.click();
+  });
+  document.getElementById('import-file')?.addEventListener('change', e => {
+    if (e.target.files[0]) importProgress(e.target.files[0]);
+  });
+  document.getElementById('btn-reset')?.addEventListener('click', () => {
+    if (confirm('Wirklich alle Daten zurücksetzen? Dieser Vorgang kann nicht rückgängig gemacht werden.')) {
+      resetState();
+      applySettings();
+      updateNavXP();
+      showView('dashboard');
+      alert('✅ Alle Daten wurden zurückgesetzt.');
+    }
+  });
+
+  /* Window resize → redraw charts */
+  window.addEventListener('resize', () => {
+    if (currentView === 'stats') renderStats();
+  });
+
+  /* Before unload: mark offline */
+  window.addEventListener('beforeunload', () => stopPresence());
+}
+
+/* ═══════════════════════════════════════════════════════
+   32. INIT (Firebase Auth → load state → start app)
+═══════════════════════════════════════════════════════ */
+async function init() {
+  loadState();
+  buildKeyboard();
+
+  const splashStatus = document.getElementById('splash-status');
+
+  // Firebase anonymous sign-in
+  try {
+    if (splashStatus) splashStatus.textContent = 'Verbinde mit Server…';
+    await signInAnonymously(auth);
+  } catch (e) {
+    console.warn('Firebase Auth fehlgeschlagen:', e.message);
+    if (splashStatus) splashStatus.textContent = 'Offline-Modus';
+  }
+
+  // Auth state listener
+  onAuthStateChanged(auth, async user => {
+    if (user) {
+      currentUserId = user.uid;
+      if (splashStatus) splashStatus.textContent = 'Lade Profil…';
+      const cloudLoaded = await loadFromCloud();
+      if (!cloudLoaded) {
+        // First visit: upload local state
+        syncToCloud();
+      }
+      startPresence();
+      subscribeOnlineUsers();
+      updateOnlineUI(true);
+    } else {
+      // Auth failed or signed out – work fully offline
+      updateOnlineUI(false);
+    }
+
+    // Boot UI regardless
+    applySettings();
+    updateNavXP();
+    bindEvents();
+
+    // Splash → App
+    setTimeout(() => {
+      const splash = document.getElementById('splash');
+      if (splash) splash.classList.add('fade-out');
+      setTimeout(() => {
+        if (splash) splash.style.display = 'none';
+        document.getElementById('app')?.classList.remove('hidden');
+        showView('dashboard');
+
+        // Show profile setup on first visit
+        if (!STATE.profile.setupDone) {
+          setTimeout(showProfileSetup, 600);
+        }
+      }, 400);
+    }, 1800);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
