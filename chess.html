@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChessMaster – Schach lernen</title>
+  <meta name="theme-color" content="#22d3a0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════
+       SPLASH SCREEN
+  ═══════════════════════════════════════════════ -->
+  <div id="splash" class="splash">
+    <div class="splash-logo">
+      <span class="logo-icon">♟</span>
+      <h1>ChessMaster</h1>
+      <p>Schach lernen leicht gemacht</p>
+    </div>
+    <div class="splash-bar"><div class="splash-fill"></div></div>
+    <p class="splash-status" id="splash-status">Verbinde…</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       PAWN PROMOTION MODAL
+  ═══════════════════════════════════════════════ -->
+  <div id="promo-overlay" class="promo-overlay hidden">
+    <div class="promo-box">
+      <h3>Bauernumwandlung – Wähle eine Figur:</h3>
+      <div class="promo-choices" id="promo-choices"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       GAME OVER MODAL
+  ═══════════════════════════════════════════════ -->
+  <div id="game-over-overlay" class="game-over-overlay hidden">
+    <div class="game-over-box">
+      <span class="game-over-icon" id="go-icon">♟</span>
+      <h2 id="go-title">Partie beendet</h2>
+      <p id="go-desc">–</p>
+      <div class="game-over-actions">
+        <button class="btn-ghost" id="btn-go-undo">↺ Zurück</button>
+        <button class="btn-accent" id="btn-go-analyze">🔍 Analysieren</button>
+        <button class="btn-primary" id="btn-go-new">Neue Partie ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       ONLINE CHESS OVERLAY (Vollbild während Online-Partie)
+  ═══════════════════════════════════════════════ -->
+  <div id="online-overlay" class="race-room-overlay hidden">
+    <div class="race-room-inner" style="max-width:860px">
+
+      <!-- Header -->
+      <div class="race-room-header">
+        <div class="race-room-info">
+          <span class="race-room-title" id="ol-room-title">Online-Schach</span>
+          <div class="race-code-wrap">
+            <span class="race-code-badge" id="ol-code-badge">CODE: ––––––</span>
+            <button class="btn-copy-code" id="btn-ol-copy-code" title="Code kopieren">📋</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button class="btn-ghost btn-sm" id="btn-ol-flip">↕ Brett drehen</button>
+          <button class="btn-danger-sm" id="btn-ol-leave">✕ Verlassen</button>
+        </div>
+      </div>
+
+      <!-- LOBBY: Create / Join -->
+      <div id="ol-lobby" class="race-lobby-state">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-bottom:1.25rem">
+          <!-- Create -->
+          <div class="mp-action-card">
+            <span class="mp-action-icon">🏁</span>
+            <h3>Raum erstellen</h3>
+            <p>Erstelle einen Raum und teile den Code mit deinem Gegner.</p>
+            <div style="margin-bottom:.75rem">
+              <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem;color:var(--text-2)">Spielfarbe:</label>
+              <div class="ai-level-select">
+                <button class="ai-level-btn active" data-ol-color="white">♔ Weiß</button>
+                <button class="ai-level-btn" data-ol-color="black">♚ Schwarz</button>
+                <button class="ai-level-btn" data-ol-color="random">🎲 Zufall</button>
+              </div>
+            </div>
+            <div style="margin-bottom:.75rem">
+              <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem;color:var(--text-2)">Bedenkzeit:</label>
+              <div class="ai-level-select">
+                <button class="ai-level-btn active" data-ol-time="300">5 min</button>
+                <button class="ai-level-btn" data-ol-time="600">10 min</button>
+                <button class="ai-level-btn" data-ol-time="1800">30 min</button>
+                <button class="ai-level-btn" data-ol-time="0">∞ unbegrenzt</button>
+              </div>
+            </div>
+            <button class="btn-primary" id="btn-ol-create" style="width:100%">Raum erstellen ▶</button>
+          </div>
+          <!-- Join -->
+          <div class="mp-action-card">
+            <span class="mp-action-icon">🔑</span>
+            <h3>Raum beitreten</h3>
+            <p>Gib den 6-stelligen Code deines Freundes ein.</p>
+            <div class="code-input-row" style="margin-top:1rem">
+              <input type="text" id="ol-join-input" placeholder="CODE" maxlength="6"
+                     style="text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.2em;font-size:1.1rem;flex:1;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.5rem .75rem;color:var(--text)" />
+              <button class="btn-primary" id="btn-ol-join">▶</button>
+            </div>
+            <p id="ol-join-error" style="font-size:.78rem;color:var(--red);margin-top:.5rem;min-height:1.2rem"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- WAITING: room created, waiting for opponent -->
+      <div id="ol-waiting" style="display:none">
+        <div class="race-lobby-state" style="text-align:center">
+          <div style="font-size:3rem;margin-bottom:.5rem">⏳</div>
+          <h3 style="margin-bottom:.5rem">Warte auf Gegner…</h3>
+          <p style="color:var(--text-2);font-size:.88rem;margin-bottom:1rem">Teile diesen Code mit deinem Gegner:</p>
+          <div class="race-code-badge" id="ol-big-code"
+               style="font-size:2rem;letter-spacing:.3em;display:inline-block;padding:.5rem 1.5rem;margin-bottom:1rem">
+            ––––––
+          </div>
+          <br>
+          <button class="btn-ghost" id="btn-ol-copy-big">📋 Code kopieren</button>
+          <p class="race-hint" style="margin-top:.75rem">Sobald dein Gegner beitritt, startet das Spiel automatisch.</p>
+        </div>
+      </div>
+
+      <!-- GAME AREA -->
+      <div id="ol-game" style="display:none">
+
+        <!-- Status bar -->
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">
+          <div class="chess-status-bar" id="ol-status">Warte auf Spielbeginn…</div>
+          <div id="ol-timer-white" style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.3rem .75rem;display:none">
+            ♔ <span id="ol-time-white">10:00</span>
+          </div>
+          <div id="ol-timer-black" style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.3rem .75rem;display:none">
+            ♚ <span id="ol-time-black">10:00</span>
+          </div>
+          <button class="btn-ghost btn-sm" id="btn-ol-resign">🏳 Aufgeben</button>
+          <button class="btn-ghost btn-sm" id="btn-ol-draw">🤝 Remis</button>
+        </div>
+
+        <!-- Players info -->
+        <div style="display:flex;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem">
+          <div class="race-player-row" id="ol-player-black"
+               style="flex:1;min-width:160px;border-color:var(--border)">
+            <span class="rp-avatar">♟</span>
+            <div class="rp-info">
+              <div class="rp-name-row">
+                <span class="rp-name" id="ol-name-black">Gegner</span>
+                <span class="rp-you-tag" id="ol-you-black" style="display:none">Du</span>
+              </div>
+              <div class="rp-stats" id="ol-stats-black">Schwarz</div>
+            </div>
+            <div class="rp-ready" id="ol-indicator-black">wartet</div>
+          </div>
+          <div style="align-self:center;font-size:1.2rem;font-weight:800;color:var(--text-3)">vs</div>
+          <div class="race-player-row" id="ol-player-white"
+               style="flex:1;min-width:160px;border-color:var(--border)">
+            <span class="rp-avatar">♔</span>
+            <div class="rp-info">
+              <div class="rp-name-row">
+                <span class="rp-name" id="ol-name-white">Gegner</span>
+                <span class="rp-you-tag" id="ol-you-white" style="display:none">Du</span>
+              </div>
+              <div class="rp-stats" id="ol-stats-white">Weiß</div>
+            </div>
+            <div class="rp-ready" id="ol-indicator-white">wartet</div>
+          </div>
+        </div>
+
+        <!-- Board + moves -->
+        <div class="chess-board-wrap" style="justify-content:center">
+          <div class="chess-board-col">
+            <div class="captured-row" id="ol-captured-top"><span class="captured-label">Geschlagen</span></div>
+            <div id="ol-board-container"></div>
+            <div class="captured-row" id="ol-captured-bottom"><span class="captured-label">Geschlagen</span></div>
+          </div>
+          <div class="move-list-wrap">
+            <div class="move-list-title">Züge</div>
+            <div class="move-list" id="ol-move-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div id="ol-result" style="display:none" class="race-result-area">
+        <h2 id="ol-result-title">Partie beendet</h2>
+        <div id="ol-result-body" style="margin-bottom:1.25rem;color:var(--text-2)"></div>
+        <div class="race-result-actions">
+          <button class="btn-primary" id="btn-ol-rematch">↺ Revanche</button>
+          <button class="btn-ghost" id="btn-ol-leave-after">Verlassen</button>
+        </div>
+      </div>
+
+    </div><!-- /race-room-inner -->
+  </div><!-- /online-overlay -->
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN APP
+  ═══════════════════════════════════════════════ -->
+  <div id="app" class="app hidden">
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <span class="logo-icon">♟</span>
+        <span class="nav-title">ChessMaster</span>
+      </div>
+      <div class="nav-stats">
+        <div class="nav-stat" title="Level"><span class="ns-icon">⭐</span><span id="nav-level">1</span></div>
+        <div class="nav-stat xp-bar-wrap" title="XP">
+          <span class="ns-icon">✨</span><span id="nav-xp">0</span>
+          <div class="nav-xp-bar"><div id="nav-xp-fill" class="nav-xp-fill"></div></div>
+        </div>
+        <div class="nav-stat" title="Streak"><span class="ns-icon">🔥</span><span id="nav-streak">0</span></div>
+        <div class="online-indicator" id="online-indicator" title="Offline">
+          <span class="oi-dot"></span><span class="oi-label" id="oi-label">Offline</span>
+        </div>
+        <button class="icon-btn" id="btn-theme" title="Theme">🌙</button>
+        <a href="typemaster.html" class="icon-btn" title="Zu TypeMaster">⌨</a>
+      </div>
+      <button class="hamburger" id="hamburger">☰</button>
+    </nav>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <ul class="nav-menu">
+        <li><button class="nav-item active" data-view="dashboard">🏠 Dashboard</button></li>
+        <li><button class="nav-item" data-view="course">📚 Kurs</button></li>
+        <li><button class="nav-item" data-view="puzzles">🧩 Puzzles</button></li>
+        <li><button class="nav-item" data-view="endgames">♛ Endspiele</button></li>
+        <li><button class="nav-item" data-view="freeplay">♟ Freies Spiel</button></li>
+        <li><button class="nav-item" data-view="stats">📊 Statistiken</button></li>
+        <li><button class="nav-item" data-view="leaderboard">🏆 Rangliste</button></li>
+        <li><button class="nav-item" data-view="achievements">🎖 Achievements</button></li>
+        <li><button class="nav-item" data-view="settings">⚙️ Einstellungen</button></li>
+        <li><a class="nav-item" href="typemaster.html">⌨ TypeMaster</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="sf-user">
+          <span class="sf-avatar" id="sf-avatar">♟</span>
+          <div class="sf-info">
+            <span class="sf-name" id="sf-name">Gast</span>
+            <span class="sf-rank" id="sf-rank">Neuling</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="main-content">
+
+      <!-- ════════ DASHBOARD ════════ -->
+      <section class="view active" id="view-dashboard">
+        <div class="view-header">
+          <h2>Schach-Dashboard</h2>
+          <p id="greeting">Willkommen zurück!</p>
+        </div>
+
+        <!-- Rank card -->
+        <div class="chess-rank-card">
+          <div class="chess-rank-badge" id="chess-rank-badge">♙</div>
+          <div class="chess-rank-info">
+            <span class="chess-rank-title" id="chess-rank-title">Neuling</span>
+            <div class="xp-progress">
+              <div class="chess-xp-bar"><div id="chess-xp-fill" class="chess-xp-fill"></div></div>
+              <span id="chess-xp-label" style="font-size:.75rem;color:var(--text-3);white-space:nowrap">0 / 100 XP</span>
+            </div>
+          </div>
+          <div class="chess-rank-level">Level <span id="chess-dash-level">1</span></div>
+        </div>
+
+        <!-- Quickstats -->
+        <div class="quickstats" style="margin-bottom:1.25rem">
+          <div class="qs-card"><span class="qs-icon">🧩</span><span class="qs-val" id="qs-puzzles">0</span><span class="qs-lbl">Puzzles gelöst</span></div>
+          <div class="qs-card"><span class="qs-icon">🏆</span><span class="qs-val" id="qs-wins">0</span><span class="qs-lbl">Siege</span></div>
+          <div class="qs-card"><span class="qs-icon">🔥</span><span class="qs-val" id="qs-streak">0</span><span class="qs-lbl">Tage Streak</span></div>
+          <div class="qs-card"><span class="qs-icon">📚</span><span class="qs-val" id="qs-lessons">0</span><span class="qs-lbl">Lektionen</span></div>
+        </div>
+
+        <!-- Daily challenge -->
+        <div class="chess-daily" id="chess-daily">
+          <div class="dc-header">
+            <span class="dc-icon">📅</span>
+            <div><h3>Tages-Challenge</h3><p id="chess-dc-desc">Lade…</p></div>
+            <div class="dc-reward" id="chess-dc-reward">+50 XP</div>
+          </div>
+          <div class="dc-progress">
+            <div class="dc-bar"><div id="chess-dc-fill" class="dc-fill"></div></div>
+            <span id="chess-dc-label">0 / –</span>
+          </div>
+        </div>
+
+        <!-- Next lesson -->
+        <div class="next-lesson-card">
+          <div class="nl-info">
+            <span class="nl-tag">Nächste Lektion</span>
+            <h3 id="chess-nl-title">Lektion 1: Das Brett</h3>
+            <p id="chess-nl-desc">Lerne die Grundlagen des Schachbretts</p>
+          </div>
+          <button class="btn-primary" id="btn-chess-next-lesson">Starten ▶</button>
+        </div>
+
+        <!-- Next puzzle -->
+        <div class="next-lesson-card" style="border-color:var(--green);background:linear-gradient(135deg,rgba(34,211,160,.08),transparent)">
+          <div class="nl-info">
+            <span class="nl-tag" style="color:var(--green)">Nächstes Puzzle</span>
+            <h3 id="chess-np-title">Puzzle 1</h3>
+            <p id="chess-np-desc">Finde den besten Zug</p>
+          </div>
+          <button class="btn-primary" id="btn-chess-next-puzzle" style="background:linear-gradient(135deg,var(--green),var(--accent))">Lösen ▶</button>
+        </div>
+      </section>
+
+      <!-- ════════ COURSE ════════ -->
+      <section class="view" id="view-course">
+        <div class="view-header"><h2>Schachkurs</h2><p>Lerne Schritt für Schritt – von Grundlagen bis Taktik</p></div>
+        <div class="chess-modules" id="chess-course-modules"></div>
+      </section>
+
+      <!-- ════════ LESSON VIEW ════════ -->
+      <section class="view" id="view-lesson">
+        <div class="training-header">
+          <button class="btn-back" id="btn-back-lesson">← Zurück</button>
+          <div class="training-meta">
+            <h2 id="lesson-view-title">Lektion</h2>
+            <span id="lesson-view-module" class="mode-badge">Modul</span>
+          </div>
+          <button class="btn-ghost" id="btn-lesson-reset">↺ Neu</button>
+        </div>
+        <div class="chess-lesson-wrap">
+          <div class="chess-lesson-text">
+            <p id="lesson-explanation"></p>
+            <div class="lesson-task-box" id="lesson-task-box">Aufgabe wird geladen…</div>
+            <div class="lesson-feedback-box" id="lesson-feedback-box"></div>
+            <div style="display:flex;gap:.75rem;margin-top:.75rem;flex-wrap:wrap">
+              <button class="btn-ghost" id="btn-lesson-hint">💡 Hinweis</button>
+              <button class="btn-primary hidden" id="btn-lesson-next">Weiter ▶</button>
+            </div>
+            <div style="margin-top:.75rem;display:flex;gap:.5rem;align-items:center">
+              <span style="font-size:.75rem;color:var(--text-3)">XP-Belohnung:</span>
+              <span id="lesson-xp-reward" style="font-size:.85rem;font-weight:700;color:var(--green)">+20 XP</span>
+            </div>
+          </div>
+          <!-- Board injected here by JS -->
+          <div id="lesson-board-container"></div>
+        </div>
+      </section>
+
+      <!-- ════════ PUZZLES ════════ -->
+      <section class="view" id="view-puzzles">
+        <div class="view-header"><h2>Schach-Puzzles</h2><p>Schärfe deine taktischen Fähigkeiten</p></div>
+        <div class="puzzle-nav" style="margin-bottom:1rem">
+          <button class="btn-ghost btn-sm" id="btn-prev-puzzle">← Zurück</button>
+          <span class="puzzle-counter" id="puzzle-counter">Puzzle 1 / 20</span>
+          <button class="btn-ghost btn-sm" id="btn-next-puzzle-nav">Weiter →</button>
+          <button class="btn-ghost btn-sm" id="btn-random-puzzle">🎲 Zufällig</button>
+        </div>
+        <div class="puzzle-wrap">
+          <div id="puzzle-board-container"></div>
+          <div class="puzzle-info-panel">
+            <div class="puzzle-meta-card">
+              <span class="puzzle-difficulty diff-easy" id="puzzle-diff-badge">Leicht</span>
+              <h3 id="puzzle-title-display">Puzzle wird geladen…</h3>
+              <p class="puzzle-desc" id="puzzle-desc-display">–</p>
+            </div>
+            <div class="puzzle-xp-reward">
+              <span>XP-Belohnung</span>
+              <span id="puzzle-xp-val">+30 XP</span>
+            </div>
+            <div class="puzzle-feedback hidden" id="puzzle-feedback"></div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <button class="hint-btn" id="btn-puzzle-hint">💡 Hinweis</button>
+              <button class="btn-ghost btn-sm" id="btn-puzzle-reset">↺ Neu starten</button>
+            </div>
+            <div id="puzzle-explanation" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:.82rem;color:var(--text-2);line-height:1.6"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ FREE PLAY ════════ -->
+      <section class="view" id="view-freeplay">
+        <div class="view-header"><h2>Freies Spiel</h2><p>Spiele gegen einen anderen Spieler oder die KI</p></div>
+
+        <!-- Setup panel (shown before game starts) -->
+        <div id="freeplay-setup">
+          <div class="freeplay-modes" style="grid-template-columns:repeat(2,1fr);margin-bottom:1.25rem">
+            <div class="fp-card selected" id="mode-pvp" data-game-mode="pvp">
+              <span class="fp-icon">👥</span><h3>Spieler vs. Spieler</h3>
+              <p>Zwei Spieler, ein Brett – lokal abwechseln</p>
+            </div>
+            <div class="fp-card" id="mode-ai" data-game-mode="ai">
+              <span class="fp-icon">🤖</span><h3>Spieler vs. KI</h3>
+              <p>Fordere die Computer-KI heraus</p>
+            </div>
+          </div>
+          <div id="ai-settings" style="display:none;margin-bottom:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem">
+            <label style="font-weight:700;font-size:.9rem;display:block;margin-bottom:.6rem">KI-Stärke:</label>
+            <div class="ai-level-select">
+              <button class="ai-level-btn active" data-ai="1">Stufe 1 – Anfänger</button>
+              <button class="ai-level-btn" data-ai="2">Stufe 2 – Fortgeschritten</button>
+              <button class="ai-level-btn" data-ai="3">Stufe 3 – Stark</button>
+            </div>
+          </div>
+          <div style="margin-bottom:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem">
+            <label style="font-weight:700;font-size:.9rem;display:block;margin-bottom:.6rem">Spielerfarbe:</label>
+            <div class="ai-level-select">
+              <button class="ai-level-btn active" data-color="white">♔ Weiß (beginnt)</button>
+              <button class="ai-level-btn" data-color="black">♚ Schwarz</button>
+              <button class="ai-level-btn" data-color="random">🎲 Zufällig</button>
+            </div>
+          </div>
+          <button class="btn-primary btn-lg" id="btn-start-freeplay">Partie starten ▶</button>
+        </div>
+
+        <!-- Game area (shown during game) -->
+        <div id="freeplay-game" style="display:none">
+          <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
+            <div class="chess-status-bar" id="freeplay-status">Weiß ist am Zug</div>
+            <button class="btn-ghost btn-sm" id="btn-fp-undo">↩ Rückgängig</button>
+            <button class="btn-ghost btn-sm" id="btn-fp-reset">↺ Neue Partie</button>
+          </div>
+          <div class="chess-board-wrap">
+            <div class="chess-board-col">
+              <div class="captured-row" id="fp-captured-black">
+                <span class="captured-label">Geschlagen</span>
+              </div>
+              <div id="freeplay-board-container"></div>
+              <div class="captured-row" id="fp-captured-white">
+                <span class="captured-label">Geschlagen</span>
+              </div>
+              <div class="chess-controls">
+                <button class="btn-ghost btn-sm" id="btn-fp-undo2">↩ Rückgängig</button>
+                <button class="btn-accent btn-sm" id="btn-fp-analyze">🔍 Analysieren</button>
+                <button class="btn-primary btn-sm" id="btn-fp-reset2">Neu starten</button>
+              </div>
+            </div>
+            <div class="move-list-wrap">
+              <div class="move-list-title">Züge</div>
+              <div class="move-list" id="fp-move-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ STATS ════════ -->
+      <section class="view" id="view-stats">
+        <div class="view-header"><h2>Statistiken</h2><p>Dein Schach-Fortschritt im Überblick</p></div>
+        <div class="chess-stats-grid" id="chess-stats-grid"></div>
+        <div class="stats-grid">
+          <div class="stat-block"><h3>Puzzle-Kategorien</h3><div id="chess-puzzle-cats" class="personal-bests"></div></div>
+          <div class="stat-block"><h3>Persönliche Bestleistungen</h3><div id="chess-personal-bests" class="personal-bests"></div></div>
+          <div class="stat-block full-width"><h3>Aktivitätsverlauf</h3><div id="chess-activity-grid" class="activity-grid"></div></div>
+        </div>
+      </section>
+
+      <!-- ════════ ENDSPIEL-TRAINER ════════ -->
+      <section class="view" id="view-endgames">
+        <div class="view-header">
+          <h2>♛ Endspiel-Trainer</h2>
+          <p>Meistere die wichtigsten Endspiel-Techniken Schritt für Schritt</p>
+        </div>
+
+        <!-- Scenario selection grid -->
+        <div id="eg-scenario-grid" class="eg-scenario-grid">
+          <!-- filled by JS -->
+        </div>
+
+        <!-- Active training area (hidden until scenario started) -->
+        <div id="eg-training" class="eg-training hidden">
+          <div class="eg-training-header">
+            <div>
+              <div class="eg-title" id="eg-title">Endspiel</div>
+              <div class="eg-subtitle" id="eg-subtitle"></div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+              <span class="eg-move-counter" id="eg-move-counter">Zug 0</span>
+              <button class="btn-ghost btn-sm" id="btn-eg-hint">💡 Tipp</button>
+              <button class="btn-ghost btn-sm" id="btn-eg-reset">↺ Neu</button>
+              <button class="btn-ghost btn-sm" id="btn-eg-back">← Zurück</button>
+            </div>
+          </div>
+
+          <div class="eg-body">
+            <div class="eg-left">
+              <div id="eg-board-container" class="eg-board-container"></div>
+              <div class="eg-hint-box hidden" id="eg-hint-box"></div>
+            </div>
+            <div class="eg-right">
+              <div class="eg-theory-box" id="eg-theory"></div>
+              <div class="eg-progress-section">
+                <div class="eg-progress-label">Fortschritt</div>
+                <div class="eg-progress-bar"><div class="eg-progress-fill" id="eg-progress-fill" style="width:0%"></div></div>
+                <div class="eg-progress-text" id="eg-progress-text">Noch nicht gestartet</div>
+              </div>
+              <div class="eg-move-list" id="eg-move-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ LEADERBOARD ════════ -->
+      <section class="view" id="view-leaderboard">
+        <div class="view-header">
+          <h2>🏆 Rangliste</h2>
+          <p>Die besten ChessMaster-Spieler weltweit</p>
+        </div>
+
+        <!-- My rank card -->
+        <div class="lb-my-rank-card" id="lb-my-card" style="display:none">
+          <span class="lb-my-rank-badge" id="lb-my-rank">#–</span>
+          <span class="lb-my-avatar" id="lb-my-avatar">♟</span>
+          <div class="lb-my-info">
+            <span class="lb-my-name" id="lb-my-name">Du</span>
+            <span class="lb-my-xp" id="lb-my-xp">0 XP</span>
+          </div>
+          <span class="lb-my-level" id="lb-my-level">Lv.1</span>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="lb-tabs">
+          <button class="lb-tab active" data-lb="chess">Schach-XP</button>
+          <button class="lb-tab" data-lb="total">Gesamt-XP</button>
+        </div>
+
+        <!-- Leaderboard table -->
+        <div class="lb-wrap">
+          <div id="lb-loading" style="text-align:center;padding:2rem;color:var(--text-3)">⏳ Lade Rangliste…</div>
+          <table class="lb-table" id="lb-table" style="display:none">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Spieler</th>
+                <th>Level</th>
+                <th id="lb-xp-col-header">Schach-XP</th>
+              </tr>
+            </thead>
+            <tbody id="lb-tbody"></tbody>
+          </table>
+        </div>
+
+        <button class="btn-ghost btn-sm" id="btn-lb-refresh" style="margin-top:1rem">⟳ Aktualisieren</button>
+      </section>
+
+      <!-- ════════ ACHIEVEMENTS ════════ -->
+      <section class="view" id="view-achievements">
+        <div class="view-header"><h2>Achievements</h2><p id="chess-ach-progress">0 von 0 freigeschaltet</p></div>
+        <div class="achievements-grid" id="chess-achievements-grid"></div>
+      </section>
+
+      <!-- ════════ SETTINGS ════════ -->
+      <section class="view" id="view-settings">
+        <div class="view-header"><h2>Einstellungen</h2></div>
+        <div class="settings-list">
+
+          <!-- PROFIL -->
+          <div class="settings-section" id="profile-section">
+            <h3>Profil</h3>
+            <div class="setting-row" style="align-items:flex-start;gap:1rem;flex-wrap:wrap">
+              <!-- Avatar picker -->
+              <div>
+                <label style="display:block;margin-bottom:.5rem;font-size:.8rem;font-weight:600;color:var(--text-2)">Avatar</label>
+                <div class="avatar-grid" id="avatar-grid">
+                  <!-- filled by JS -->
+                </div>
+              </div>
+              <!-- Name input -->
+              <div style="flex:1;min-width:180px">
+                <label style="display:block;margin-bottom:.5rem;font-size:.8rem;font-weight:600;color:var(--text-2)">Anzeigename</label>
+                <div style="display:flex;gap:.5rem">
+                  <input type="text" id="profile-name-input" maxlength="20" placeholder="Dein Name"
+                    style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.4rem .75rem;color:var(--text);font-size:.95rem;flex:1" />
+                  <button class="btn-primary btn-sm" id="btn-save-profile">Speichern</button>
+                </div>
+                <p id="profile-save-msg" style="font-size:.78rem;color:var(--green);margin-top:.3rem;min-height:1.1rem"></p>
+                <p style="font-size:.75rem;color:var(--text-3);margin-top:.25rem">Wird in der Rangliste und im Online-Spiel angezeigt.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Darstellung</h3>
+            <div class="setting-row">
+              <label>Theme</label>
+              <div class="toggle-group">
+                <button class="toggle-btn active" id="set-dark">🌙 Dunkel</button>
+                <button class="toggle-btn" id="set-light">☀️ Hell</button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>Brettgröße</label>
+              <div class="toggle-group">
+                <button class="toggle-btn" id="set-board-sm">Klein</button>
+                <button class="toggle-btn active" id="set-board-md">Mittel</button>
+                <button class="toggle-btn" id="set-board-lg">Groß</button>
+              </div>
+            </div>
+            <div class="setting-row" style="align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+              <label style="padding-top:.35rem">Brett-Theme</label>
+              <div class="board-theme-grid" id="board-theme-grid">
+                <button class="board-theme-btn active" data-board-theme="classic" title="Klassisch">
+                  <span class="bt-preview"><span class="bt-l" style="background:#f0d9b5"></span><span class="bt-d" style="background:#b58863"></span></span>
+                  <span>Klassisch</span>
+                </button>
+                <button class="board-theme-btn" data-board-theme="walnut" title="Walnuss">
+                  <span class="bt-preview"><span class="bt-l" style="background:#f2dbb0"></span><span class="bt-d" style="background:#7b4f2e"></span></span>
+                  <span>Walnuss</span>
+                </button>
+                <button class="board-theme-btn" data-board-theme="ocean" title="Ozean">
+                  <span class="bt-preview"><span class="bt-l" style="background:#d4e8f0"></span><span class="bt-d" style="background:#3a7fa8"></span></span>
+                  <span>Ozean</span>
+                </button>
+                <button class="board-theme-btn" data-board-theme="forest" title="Wald">
+                  <span class="bt-preview"><span class="bt-l" style="background:#d8edca"></span><span class="bt-d" style="background:#4a7c4e"></span></span>
+                  <span>Wald</span>
+                </button>
+                <button class="board-theme-btn" data-board-theme="midnight" title="Mitternacht">
+                  <span class="bt-preview"><span class="bt-l" style="background:#9ba8c4"></span><span class="bt-d" style="background:#344268"></span></span>
+                  <span>Nacht</span>
+                </button>
+                <button class="board-theme-btn" data-board-theme="coral" title="Koralle">
+                  <span class="bt-preview"><span class="bt-l" style="background:#f9ddd5"></span><span class="bt-d" style="background:#c0614a"></span></span>
+                  <span>Koralle</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Spieloptionen</h3>
+            <div class="setting-row"><label>Legale Züge anzeigen</label><label class="switch"><input type="checkbox" id="set-show-legal" checked /><span class="slider"></span></label></div>
+            <div class="setting-row"><label>Letzten Zug markieren</label><label class="switch"><input type="checkbox" id="set-show-last-move" checked /><span class="slider"></span></label></div>
+            <div class="setting-row"><label>Soundeffekte</label><label class="switch"><input type="checkbox" id="set-sound" checked /><span class="slider"></span></label></div>
+          </div>
+          <div class="settings-section">
+            <h3>Daten</h3>
+            <div class="setting-row danger"><label>Fortschritt zurücksetzen</label><button class="btn-danger" id="btn-chess-reset">🗑 Reset</button></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /app -->
+
+  <!-- ACHIEVEMENT TOAST -->
+  <div id="achievement-toast" class="achievement-toast hidden">
+    <span class="at-icon" id="at-icon">🏆</span>
+    <div class="at-text">
+      <span class="at-title">Achievement freigeschaltet!</span>
+      <span class="at-name" id="at-name">Erster Schritt</span>
+    </div>
+  </div>
+
+  <!-- LEVEL UP OVERLAY -->
+  <div id="levelup-overlay" class="levelup-overlay hidden">
+    <div class="lu-content">
+      <div class="lu-icon">♟</div>
+      <h2>Level Up!</h2>
+      <p>Du bist jetzt Level <span id="lu-level">2</span></p>
+      <p class="lu-rank" id="lu-rank">Bauer</p>
+      <button class="btn-primary" id="btn-lu-close">Weiter!</button>
+    </div>
+  </div>
+
+  <script type="module" src="chess.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  </script>
+</body>
+</html>

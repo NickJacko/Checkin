@@ -1,0 +1,40 @@
+{
+  "name": "LearnHub – Tippen & Schach",
+  "short_name": "LearnHub",
+  "description": "10-Finger-Tippen und Schach lernen – zwei Lernwelten in einer App",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f14",
+  "theme_color": "#7c6cf8",
+  "lang": "de",
+  "categories": ["education", "games"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f0f14'/><text y='72' x='50' text-anchor='middle' font-size='60'>🎓</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "TypeMaster",
+      "short_name": "Tippen",
+      "description": "10-Finger-Schreibkurs starten",
+      "url": "/typemaster.html",
+      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>⌨</text></svg>", "sizes": "any" }]
+    },
+    {
+      "name": "ChessMaster",
+      "short_name": "Schach",
+      "description": "Schach lernen & spielen",
+      "url": "/chess.html",
+      "icons": [{ "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>♟</text></svg>", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

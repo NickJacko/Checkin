@@ -3,525 +3,411 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TypeMaster – 10-Finger-Schreibkurs</title>
+  <meta name="theme-color" content="#7c6cf8" />
+  <meta name="description" content="LearnHub – 10-Finger-Tippen und Schach lernen in einer App" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>LearnHub – Deine Lernplattform</title>
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── HUB-SPECIFIC ── */
+    .hub-body { min-height: 100vh; background: var(--bg); }
+
+    /* HERO */
+    .hub-hero {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #0f0f1a 0%, #1a1230 50%, #0f1a1a 100%);
+      padding: 3.5rem 2rem 4rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hub-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 20% 50%, rgba(124,108,248,.25) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, rgba(34,211,160,.2) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .hub-hero-logo { font-size: 3.5rem; display: block; margin-bottom: .75rem; animation: float 3s ease-in-out infinite; }
+    .hub-hero h1 {
+      font-size: clamp(2rem, 5vw, 3rem); font-weight: 900; margin-bottom: .5rem;
+      background: linear-gradient(135deg, #a78bfa, #34d399, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hub-hero p { color: var(--text-2); font-size: 1.05rem; max-width: 480px; margin: 0 auto 2rem; }
+
+    /* GLOBAL XP BAR */
+    .global-xp-bar-wrap {
+      display: flex; align-items: center; gap: 1rem; max-width: 500px; margin: 0 auto;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: .75rem 1.25rem;
+    }
+    .gxp-icon { font-size: 1.5rem; }
+    .gxp-info { flex: 1; }
+    .gxp-label { font-size: .75rem; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+    .gxp-value { font-size: 1.3rem; font-weight: 800; color: #a78bfa; }
+    .gxp-bar { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: .35rem; }
+    .gxp-fill { height: 100%; background: linear-gradient(90deg, #7c6cf8, #34d399); border-radius: 99px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+    /* TOP NAV */
+    .hub-topnav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.5rem; height: 58px;
+      background: rgba(15,15,20,.92); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .hub-brand { display: flex; align-items: center; gap: .5rem; font-weight: 800; font-size: 1.05rem; }
+    .hub-brand-icon { font-size: 1.4rem; }
+    .hub-brand-text { background: linear-gradient(135deg,#a78bfa,#34d399); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hub-nav-right { display: flex; align-items: center; gap: .5rem; }
+    .hub-streak { display: flex; align-items: center; gap: .3rem; font-size: .82rem; font-weight: 700; color: var(--yellow); background: var(--yellow-bg); padding: .2rem .6rem; border-radius: 99px; }
+    .hub-online { display: flex; align-items: center; gap: .3rem; font-size: .75rem; color: var(--text-3); }
+    .hub-online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse-dot 2s infinite; }
+
+    /* MAIN CONTENT */
+    .hub-main { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* SECTION */
+    .hub-section { margin-bottom: 2.5rem; }
+    .hub-section-title {
+      font-size: .75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text-3); margin-bottom: 1rem;
+    }
+
+    /* WORLD CARDS */
+    .worlds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
+    .world-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1rem;
+      transition: transform var(--t-med), box-shadow var(--t-med), border-color var(--t-med);
+      position: relative; overflow: hidden; cursor: pointer;
+    }
+    .world-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+    .world-card.typing-world { border-top: 3px solid var(--accent); }
+    .world-card.typing-world:hover { border-color: var(--accent); box-shadow: 0 12px 40px var(--accent-glow); }
+    .world-card.chess-world  { border-top: 3px solid var(--green); }
+    .world-card.chess-world:hover  { border-color: var(--green);  box-shadow: 0 12px 40px rgba(34,211,160,.25); }
+
+    .world-card::before {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 180px; height: 180px; border-radius: 50%; filter: blur(60px); opacity: .35; pointer-events: none;
+    }
+    .world-card.typing-world::before { background: var(--accent); }
+    .world-card.chess-world::before  { background: var(--green); }
+
+    .world-header { display: flex; align-items: center; gap: .85rem; }
+    .world-icon { font-size: 2.2rem; }
+    .world-title { font-size: 1.15rem; font-weight: 800; }
+    .world-subtitle { font-size: .78rem; color: var(--text-2); margin-top: .15rem; }
+
+    .world-level-badge {
+      margin-left: auto; font-size: .75rem; font-weight: 800; padding: .25rem .7rem;
+      border-radius: 99px; white-space: nowrap;
+    }
+    .typing-world .world-level-badge { background: var(--accent-glow); color: var(--accent-2); }
+    .chess-world  .world-level-badge { background: var(--green-bg);    color: var(--green); }
+
+    .world-stats { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .world-stat { display: flex; flex-direction: column; align-items: center; background: var(--bg-3); border-radius: var(--radius-sm); padding: .4rem .65rem; min-width: 60px; }
+    .world-stat-val { font-size: .95rem; font-weight: 700; color: var(--text); }
+    .world-stat-lbl { font-size: .62rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; margin-top: .1rem; }
+
+    .world-xp-row { display: flex; align-items: center; gap: .75rem; }
+    .world-xp-bar { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .world-xp-fill { height: 100%; border-radius: 99px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+    .typing-world .world-xp-fill { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+    .chess-world  .world-xp-fill  { background: linear-gradient(90deg, var(--green), var(--accent)); }
+    .world-xp-text { font-size: .72rem; color: var(--text-3); white-space: nowrap; }
+
+    .world-last { font-size: .72rem; color: var(--text-3); }
+    .world-btn {
+      display: flex; align-items: center; justify-content: center; gap: .4rem;
+      padding: .7rem 1.25rem; border-radius: var(--radius); font-size: .88rem; font-weight: 700;
+      border: none; cursor: pointer; text-decoration: none;
+      transition: all var(--t-fast); margin-top: auto;
+    }
+    .typing-world .world-btn { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color: #fff; box-shadow: 0 4px 16px var(--accent-glow); }
+    .chess-world  .world-btn  { background: linear-gradient(135deg,var(--green),#059669); color: #fff; box-shadow: 0 4px 16px rgba(34,211,160,.3); }
+    .world-btn:hover { transform: translateY(-2px); }
+    .world-card.no-data .world-btn { opacity: .7; }
+
+    /* LOCKED CARD (not started yet) */
+    .world-card.not-started { opacity: .75; }
+    .world-card.not-started .world-btn { background: var(--bg-3); color: var(--text-2); box-shadow: none; border: 1px solid var(--border); }
+
+    /* TODAY SECTION */
+    .today-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
+    .today-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: .9rem 1rem; display: flex; align-items: center; gap: .75rem; cursor: pointer;
+      transition: all var(--t-fast); text-decoration: none; color: var(--text);
+    }
+    .today-card:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .today-card-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .today-card-info h4 { font-size: .88rem; font-weight: 700; }
+    .today-card-info p { font-size: .72rem; color: var(--text-2); margin-top: .1rem; }
+    .today-card-tag { margin-left: auto; font-size: .65rem; font-weight: 700; padding: .15rem .45rem; border-radius: 99px; white-space: nowrap; }
+    .tag-new { background: var(--accent-glow); color: var(--accent-2); }
+    .tag-daily { background: var(--yellow-bg); color: var(--yellow); }
+    .tag-streak { background: rgba(239,68,68,.15); color: var(--red); }
+
+    /* ACHIEVEMENTS STRIP */
+    .ach-strip { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .ach-chip {
+      display: flex; align-items: center; gap: .35rem; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 99px; padding: .25rem .75rem;
+      font-size: .78rem; font-weight: 600; transition: all var(--t-fast);
+    }
+    .ach-chip.unlocked { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+    .ach-chip.locked   { opacity: .45; filter: grayscale(.8); }
+
+    /* ACTIVITY */
+    .activity-mini { display: flex; gap: 3px; flex-wrap: wrap; }
+    .am-day { width: 12px; height: 12px; border-radius: 2px; background: var(--border); }
+    .am-day.t { background: var(--accent); opacity: .3; }
+    .am-day.t1 { opacity: .4; }
+    .am-day.t2 { opacity: .65; }
+    .am-day.t3 { opacity: .85; }
+    .am-day.t4 { opacity: 1; }
+    .am-day.today { outline: 2px solid var(--accent); }
+
+    /* SYNC MODAL */
+    .sync-modal { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center; z-index: 900; backdrop-filter: blur(8px); }
+    .sync-modal.hidden { display: none; }
+    .sync-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; max-width: 420px; width: calc(100% - 2rem); }
+    .sync-box h2 { font-size: 1.25rem; font-weight: 800; margin-bottom: .25rem; }
+    .sync-box p { font-size: .85rem; color: var(--text-2); margin-bottom: 1.25rem; }
+    .sync-code-display { font-family: var(--font-mono); font-size: 2rem; font-weight: 900; letter-spacing: .2em; text-align: center; background: var(--accent-glow); border: 2px solid var(--accent); border-radius: var(--radius); padding: .75rem 1rem; color: var(--accent-2); margin-bottom: 1rem; }
+    .sync-input-row { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .sync-input-row input { flex: 1; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .75rem; color: var(--text); font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .15em; text-transform: uppercase; }
+
+    /* INSTALL PROMPT */
+    .install-bar {
+      display: none; align-items: center; gap: 1rem; background: var(--accent-glow);
+      border: 1px solid var(--accent); border-radius: var(--radius); padding: .75rem 1.25rem;
+      margin-bottom: 1.25rem; font-size: .88rem;
+    }
+    .install-bar.show { display: flex; }
+    .install-bar p { flex: 1; }
+    .install-bar p strong { color: var(--accent-2); }
+
+    /* LEADERBOARD MINI */
+    .lb-mini-row {
+      display: flex; align-items: center; gap: .75rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: .5rem .85rem;
+      font-size: .85rem; transition: background var(--t-fast);
+    }
+    .lb-mini-row.lb-mini-me { border-color: var(--primary); background: rgba(124,108,248,.1); }
+    .lb-mini-rank { font-weight: 800; color: var(--text-3); min-width: 2.2ch; text-align: center; font-size: .8rem; }
+    .lb-mini-rank.r1 { color: #f59e0b; } .lb-mini-rank.r2 { color: #94a3b8; } .lb-mini-rank.r3 { color: #b45309; }
+    .lb-mini-avatar { font-size: 1.2rem; }
+    .lb-mini-name { flex: 1; font-weight: 600; color: var(--text); }
+    .lb-mini-xp { font-family: var(--font-mono); font-weight: 700; font-size: .8rem; color: var(--text-2); }
+
+    /* FOOTER */
+    .hub-footer { text-align: center; padding: 2rem 1rem; color: var(--text-3); font-size: .78rem; border-top: 1px solid var(--border); }
+
+    /* RESPONSIVE */
+    @media (max-width: 600px) {
+      .hub-hero { padding: 2.5rem 1rem 3rem; }
+      .hub-main  { padding: 1.25rem 1rem 3rem; }
+      .worlds-grid { grid-template-columns: 1fr; }
+      .today-grid  { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-<body>
+<body class="hub-body">
 
-  <!-- ═══════════════════════════════════════════════
-       SPLASH SCREEN
-  ═══════════════════════════════════════════════ -->
-  <div id="splash" class="splash">
-    <div class="splash-logo">
-      <span class="logo-icon">⌨</span>
-      <h1>TypeMaster</h1>
-      <p>10-Finger-Schreibkurs</p>
+  <!-- ── TOP NAV ── -->
+  <nav class="hub-topnav">
+    <div class="hub-brand">
+      <span class="hub-brand-icon">🎓</span>
+      <span class="hub-brand-text">LearnHub</span>
     </div>
-    <div class="splash-bar"><div class="splash-fill"></div></div>
-    <p class="splash-status" id="splash-status">Verbinde…</p>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       PROFIL SETUP MODAL (erster Start)
-  ═══════════════════════════════════════════════ -->
-  <div id="profile-modal" class="modal-overlay hidden">
-    <div class="modal-box">
-      <div class="modal-icon">👤</div>
-      <h2>Willkommen bei TypeMaster!</h2>
-      <p>Wähle einen Namen für die Bestenliste:</p>
-      <div class="modal-input-row">
-        <input type="text" id="profile-name-input" maxlength="20"
-               placeholder="Dein Anzeigename (max. 20 Zeichen)" autocomplete="off" />
+    <div class="hub-nav-right">
+      <div class="hub-streak" id="hub-streak" title="Tage Streak">🔥 <span id="hub-streak-val">0</span></div>
+      <div class="hub-online" id="hub-online-ind">
+        <span class="hub-online-dot" id="hub-ol-dot" style="background:var(--text-3)"></span>
+        <span id="hub-ol-label">–</span>
       </div>
-      <div class="avatar-section">
-        <p class="avatar-label">Wähle deinen Avatar:</p>
-        <div class="avatar-grid" id="avatar-grid"></div>
-      </div>
-      <button class="btn-primary btn-lg" id="btn-save-profile">Los geht's! 🚀</button>
+      <button class="icon-btn" id="btn-hub-theme" title="Theme wechseln">🌙</button>
+      <button class="icon-btn" id="btn-sync" title="Geräte synchronisieren">🔗</button>
     </div>
-  </div>
+  </nav>
 
-  <!-- ═══════════════════════════════════════════════
-       RACE ROOM OVERLAY (Vollbild während Rennen)
-  ═══════════════════════════════════════════════ -->
-  <div id="race-room-overlay" class="race-room-overlay hidden">
-    <div class="race-room-inner">
-
-      <!-- Header -->
-      <div class="race-room-header">
-        <div class="race-room-info">
-          <span class="race-room-title" id="race-room-title">Raum: –</span>
-          <div class="race-code-wrap">
-            <span class="race-code-badge" id="race-code-badge">CODE: ––––––</span>
-            <button class="btn-copy-code" id="btn-copy-race-code" title="Code kopieren">📋</button>
-          </div>
-        </div>
-        <button class="btn-danger-sm" id="btn-leave-race">✕ Verlassen</button>
+  <!-- ── HERO ── -->
+  <header class="hub-hero">
+    <span class="hub-hero-logo">🎓</span>
+    <h1>Deine Lernplattform</h1>
+    <p id="hub-greeting">Bereit für eine neue Lerneinheit? Wähle deine Welt!</p>
+    <div class="global-xp-bar-wrap" id="global-xp-bar">
+      <span class="gxp-icon">⚡</span>
+      <div class="gxp-info">
+        <div class="gxp-label">Gesamt-XP (alle Lernwelten)</div>
+        <div class="gxp-value" id="gxp-value">0 XP</div>
+        <div class="gxp-bar"><div class="gxp-fill" id="gxp-fill" style="width:0%"></div></div>
       </div>
-
-      <!-- Players with live progress -->
-      <div class="race-players-wrap">
-        <h3 class="race-section-label">Spieler</h3>
-        <div class="race-players" id="race-players-list"></div>
+      <div style="font-size:.75rem;color:var(--text-3);white-space:nowrap">
+        Level <span id="gxp-level" style="color:var(--accent-2);font-weight:800">1</span>
       </div>
-
-      <!-- Lobby state -->
-      <div id="race-lobby-state" class="race-lobby-state">
-        <p id="race-status-text" class="race-status-text">Warte auf Mitspieler…</p>
-        <div class="race-lobby-actions">
-          <button class="btn-primary" id="btn-ready-race">✓ Bereit!</button>
-          <button class="btn-ghost" id="btn-start-race-host" style="display:none">🚀 Rennen starten</button>
-        </div>
-        <p class="race-hint" id="race-hint">Mindestens 2 Spieler müssen bereit sein.</p>
-      </div>
-
-      <!-- Training area -->
-      <div id="race-training-area" class="race-training-area hidden">
-        <div class="live-stats race-live-stats">
-          <div class="ls-item"><span class="ls-icon">⏱</span><span id="race-ls-time">0:00</span></div>
-          <div class="ls-item"><span class="ls-icon">⚡</span><span id="race-ls-wpm">0</span> WPM</div>
-          <div class="ls-item"><span class="ls-icon">🎯</span><span id="race-ls-acc">100</span>%</div>
-          <div class="progress-wrap"><div class="progress-bar"><div id="race-training-progress" class="progress-fill"></div></div></div>
-        </div>
-        <div class="text-display-wrap">
-          <div class="text-display" id="race-text-display"></div>
-        </div>
-        <input type="text" id="race-hidden-input" class="hidden-input"
-               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-        <div class="tap-to-focus" id="race-tap-focus"><span>⌨ Hier klicken zum Tippen</span></div>
-      </div>
-
-      <!-- Result -->
-      <div id="race-result-area" class="race-result-area hidden">
-        <h2 id="race-result-title">🏁 Rennen beendet!</h2>
-        <div id="race-final-standings" class="race-final-standings"></div>
-        <div class="race-result-actions">
-          <button class="btn-primary" id="btn-race-rematch">↺ Nochmal</button>
-          <button class="btn-ghost" id="btn-race-leave-after">Verlassen</button>
-        </div>
-      </div>
-
     </div>
-  </div>
+  </header>
 
-  <!-- Countdown overlay -->
-  <div id="race-countdown-overlay" class="race-countdown-overlay hidden">
-    <div class="rco-inner">
-      <div class="rco-number" id="rco-number">3</div>
-      <p>Bereit machen…</p>
+  <!-- ── MAIN ── -->
+  <main class="hub-main">
+
+    <!-- PWA Install bar -->
+    <div class="install-bar" id="install-bar">
+      <span style="font-size:1.4rem">📲</span>
+      <p><strong>App installieren</strong> – Nutze LearnHub direkt vom Homescreen, auch offline!</p>
+      <button class="btn-primary btn-sm" id="btn-install">Installieren</button>
+      <button class="btn-ghost btn-sm" id="btn-install-dismiss">Später</button>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════
-       MAIN APP
-  ═══════════════════════════════════════════════ -->
-  <div id="app" class="app hidden">
+    <!-- LERNWELTEN -->
+    <div class="hub-section">
+      <div class="hub-section-title">Lernwelten</div>
+      <div class="worlds-grid" id="worlds-grid">
 
-    <!-- NAVBAR -->
-    <nav class="navbar">
-      <div class="nav-brand">
-        <span class="logo-icon">⌨</span>
-        <span class="nav-title">TypeMaster</span>
-      </div>
-      <div class="nav-stats">
-        <div class="nav-stat" title="Level"><span class="ns-icon">⭐</span><span id="nav-level">1</span></div>
-        <div class="nav-stat xp-bar-wrap" title="XP">
-          <span class="ns-icon">✨</span><span id="nav-xp">0</span>
-          <div class="nav-xp-bar"><div id="nav-xp-fill" class="nav-xp-fill"></div></div>
-        </div>
-        <div class="nav-stat" title="Streak"><span class="ns-icon">🔥</span><span id="nav-streak">0</span></div>
-        <div class="online-indicator" id="online-indicator" title="Offline">
-          <span class="oi-dot"></span><span class="oi-label" id="oi-label">Offline</span>
-        </div>
-        <button class="icon-btn" id="btn-theme" title="Theme">🌙</button>
-        <button class="icon-btn" id="btn-sound" title="Sound">🔊</button>
-        <div class="nav-avatar" id="nav-avatar">🐣</div>
-      </div>
-      <button class="hamburger" id="hamburger">☰</button>
-    </nav>
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-      <ul class="nav-menu">
-        <li><button class="nav-item active" data-view="dashboard">🏠 Dashboard</button></li>
-        <li><button class="nav-item" data-view="course">📚 Kurs</button></li>
-        <li><button class="nav-item" data-view="freeplay">🎯 Freies Training</button></li>
-        <li><button class="nav-item" data-view="multiplayer">⚡ Multiplayer</button></li>
-        <li><button class="nav-item" data-view="leaderboard">🏆 Bestenliste</button></li>
-        <li><button class="nav-item" data-view="stats">📊 Statistiken</button></li>
-        <li><button class="nav-item" data-view="achievements">🎖 Achievements</button></li>
-        <li><button class="nav-item" data-view="settings">⚙️ Einstellungen</button></li>
-      </ul>
-      <div class="sidebar-footer">
-        <div class="sf-user" id="sf-user">
-          <span class="sf-avatar" id="sf-avatar">🐣</span>
-          <div class="sf-info">
-            <span class="sf-name" id="sf-name">Gast</span>
-            <span class="sf-rank" id="sf-rank">Anfänger</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content" id="main-content">
-
-      <!-- ════════ DASHBOARD ════════ -->
-      <section class="view active" id="view-dashboard">
-        <div class="view-header">
-          <h2>Dashboard</h2>
-          <p id="greeting">Willkommen zurück!</p>
-        </div>
-        <div class="rank-card">
-          <div class="rank-badge" id="rank-badge">🐣</div>
-          <div class="rank-info">
-            <span class="rank-title" id="rank-title">Anfänger</span>
-            <div class="xp-progress">
-              <div class="xp-bar"><div id="xp-fill" class="xp-fill"></div></div>
-              <span id="xp-label">0 / 100 XP</span>
-            </div>
-          </div>
-          <div class="rank-level">Level <span id="dash-level">1</span></div>
-        </div>
-        <div class="quickstats">
-          <div class="qs-card"><span class="qs-icon">⚡</span><span class="qs-val" id="qs-wpm">–</span><span class="qs-lbl">Ø WPM</span></div>
-          <div class="qs-card"><span class="qs-icon">🎯</span><span class="qs-val" id="qs-acc">–</span><span class="qs-lbl">Ø Genauigkeit</span></div>
-          <div class="qs-card"><span class="qs-icon">🔥</span><span class="qs-val" id="qs-streak">0</span><span class="qs-lbl">Tage Streak</span></div>
-          <div class="qs-card"><span class="qs-icon">✅</span><span class="qs-val" id="qs-done">0</span><span class="qs-lbl">Lektionen</span></div>
-        </div>
-        <div class="daily-challenge" id="daily-challenge">
-          <div class="dc-header">
-            <span class="dc-icon">📅</span>
-            <div><h3>Tages-Challenge</h3><p id="dc-desc">Lade…</p></div>
-            <div class="dc-reward">+50 XP</div>
-          </div>
-          <div class="dc-progress">
-            <div class="dc-bar"><div id="dc-fill" class="dc-fill"></div></div>
-            <span id="dc-label">0 / –</span>
-          </div>
-        </div>
-        <!-- Multiplayer Quick Card -->
-        <div class="mp-quick-card" id="mp-quick-card">
-          <div class="mpq-left">
-            <span class="mpq-icon">⚡</span>
+        <!-- TypeMaster Card -->
+        <div class="world-card typing-world" id="card-typing">
+          <div class="world-header">
+            <span class="world-icon">⌨</span>
             <div>
-              <h3>Schnell-Rennen</h3>
-              <p id="mpq-online-count">Verbinde…</p>
+              <div class="world-title">TypeMaster</div>
+              <div class="world-subtitle">10-Finger-Schreibkurs</div>
             </div>
+            <span class="world-level-badge" id="typing-level-badge">Level 1</span>
           </div>
-          <button class="btn-primary" id="btn-quick-race">Rennen starten!</button>
-        </div>
-        <div class="next-lesson-card">
-          <div class="nl-info">
-            <span class="nl-tag">Nächste Lektion</span>
-            <h3 id="nl-title">Lektion 1: Grundreihe</h3>
-            <p id="nl-desc">Lerne die Grundposition</p>
+          <div class="world-stats" id="typing-stats">
+            <div class="world-stat"><span class="world-stat-val" id="t-wpm">–</span><span class="world-stat-lbl">Ø WPM</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="t-lessons">0</span><span class="world-stat-lbl">Lektionen</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="t-streak">0</span><span class="world-stat-lbl">Streak</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="t-acc">–</span><span class="world-stat-lbl">Genauigkeit</span></div>
           </div>
-          <button class="btn-primary" id="btn-next-lesson">Starten ▶</button>
+          <div class="world-xp-row">
+            <div class="world-xp-bar"><div class="world-xp-fill" id="typing-xp-fill" style="width:0%"></div></div>
+            <span class="world-xp-text" id="typing-xp-text">0 XP</span>
+          </div>
+          <div class="world-last" id="typing-last">Noch nicht gestartet</div>
+          <a href="typemaster.html" class="world-btn" id="typing-cta">⌨ Tippen starten ▶</a>
         </div>
-        <div class="quote-card">
-          <span class="quote-icon">💬</span>
-          <p id="daily-quote">"Der Anfang ist die Hälfte des Ganzen."</p>
-        </div>
-      </section>
 
-      <!-- ════════ COURSE ════════ -->
-      <section class="view" id="view-course">
-        <div class="view-header"><h2>Kursübersicht</h2><p>Lerne Schritt für Schritt das 10-Finger-System</p></div>
-        <div class="course-modules" id="course-modules"></div>
-      </section>
-
-      <!-- ════════ TRAINING ════════ -->
-      <section class="view" id="view-training">
-        <div class="training-header">
-          <button class="btn-back" id="btn-back-course">← Zurück</button>
-          <div class="training-meta">
-            <h2 id="training-title">Lektion</h2>
-            <div class="training-badges"><span id="training-mode-badge" class="mode-badge">Normal</span></div>
-          </div>
-          <div class="training-controls">
-            <button class="btn-ghost" id="btn-restart-lesson">↺ Neu</button>
-          </div>
-        </div>
-        <div class="live-stats">
-          <div class="ls-item"><span class="ls-icon">⏱</span><span id="ls-time">0:00</span></div>
-          <div class="ls-item"><span class="ls-icon">⚡</span><span id="ls-wpm">0</span> WPM</div>
-          <div class="ls-item"><span class="ls-icon">🎯</span><span id="ls-acc">100</span>%</div>
-          <div class="ls-item"><span class="ls-icon">❌</span><span id="ls-errors">0</span></div>
-          <div class="progress-wrap"><div class="progress-bar"><div id="training-progress" class="progress-fill"></div></div></div>
-        </div>
-        <div class="text-display-wrap">
-          <div class="text-display" id="text-display"></div>
-        </div>
-        <input type="text" id="hidden-input" class="hidden-input"
-               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-        <div class="tap-to-focus" id="tap-to-focus"><span>⌨ Hier klicken zum Tippen</span></div>
-        <div class="keyboard-container" id="keyboard-container">
-          <div class="keyboard" id="virtual-keyboard"></div>
-          <div class="finger-legend">
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-1)"></span>L. Zeigefinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-2)"></span>L. Mittelfinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-3)"></span>L. Ringfinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-4)"></span>L. kleiner Finger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-5)"></span>R. Zeigefinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-6)"></span>R. Mittelfinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-7)"></span>R. Ringfinger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-8)"></span>R. kleiner Finger</div>
-            <div class="fl-item"><span class="fl-dot" style="background:var(--finger-thumb)"></span>Daumen</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ════════ RESULT ════════ -->
-      <section class="view" id="view-result">
-        <div class="result-container">
-          <div class="result-header">
-            <div class="result-stars" id="result-stars">⭐⭐⭐</div>
-            <h2 id="result-title">Super!</h2>
-            <p id="result-message">Fantastische Leistung!</p>
-          </div>
-          <div class="result-stats">
-            <div class="rs-card"><span class="rs-val" id="res-wpm">0</span><span class="rs-lbl">WPM</span></div>
-            <div class="rs-card"><span class="rs-val" id="res-acc">0%</span><span class="rs-lbl">Genauigkeit</span></div>
-            <div class="rs-card"><span class="rs-val" id="res-errors">0</span><span class="rs-lbl">Fehler</span></div>
-            <div class="rs-card"><span class="rs-val" id="res-time">0s</span><span class="rs-lbl">Zeit</span></div>
-          </div>
-          <div class="result-xp">+<span id="res-xp-val">0</span> XP verdient!</div>
-          <div class="result-feedback" id="result-feedback"></div>
-          <div class="result-problem-keys" id="result-problem-keys" style="display:none">
-            <h4>⚠ Übungsbedarf:</h4>
-            <div id="problem-keys-list"></div>
-          </div>
-          <!-- Vs best comparison -->
-          <div class="result-vs" id="result-vs" style="display:none">
-            <h4>📊 Vergleich mit Bestenliste</h4>
-            <div id="result-vs-content"></div>
-          </div>
-          <div class="result-actions">
-            <button class="btn-ghost" id="btn-retry">↺ Nochmal</button>
-            <button class="btn-ghost" id="btn-challenge-friend">⚡ Freunde herausfordern</button>
-            <button class="btn-primary" id="btn-next-after-result">Weiter ▶</button>
-          </div>
-        </div>
-        <canvas id="confetti-canvas"></canvas>
-      </section>
-
-      <!-- ════════ FREE PLAY ════════ -->
-      <section class="view" id="view-freeplay">
-        <div class="view-header"><h2>Freies Training</h2><p>Wähle deinen Trainingsmodus</p></div>
-        <div class="freeplay-modes">
-          <div class="fp-card" data-mode="time">
-            <span class="fp-icon">⏱</span><h3>Zeitmodus</h3>
-            <p>Tippe so viel wie möglich in der vorgegebenen Zeit</p>
-            <div class="fp-options">
-              <button class="fp-opt active" data-time="30">30s</button>
-              <button class="fp-opt" data-time="60">1 Min</button>
-              <button class="fp-opt" data-time="120">2 Min</button>
+        <!-- ChessMaster Card -->
+        <div class="world-card chess-world" id="card-chess">
+          <div class="world-header">
+            <span class="world-icon">♟</span>
+            <div>
+              <div class="world-title">ChessMaster</div>
+              <div class="world-subtitle">Schach lernen Schritt für Schritt</div>
             </div>
+            <span class="world-level-badge" id="chess-level-badge">Level 1</span>
           </div>
-          <div class="fp-card" data-mode="accuracy">
-            <span class="fp-icon">🎯</span><h3>Genauigkeitsmodus</h3>
-            <p>Fehler blockieren – maximale Konzentration</p>
+          <div class="world-stats">
+            <div class="world-stat"><span class="world-stat-val" id="c-puzzles">0</span><span class="world-stat-lbl">Puzzles</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="c-lessons">0</span><span class="world-stat-lbl">Lektionen</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="c-wins">0</span><span class="world-stat-lbl">Siege</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="c-streak">0</span><span class="world-stat-lbl">Streak</span></div>
           </div>
-          <div class="fp-card" data-mode="focus">
-            <span class="fp-icon">🧘</span><h3>Fokusmodus</h3>
-            <p>Keine Ablenkung – nur du und der Text</p>
+          <div class="world-xp-row">
+            <div class="world-xp-bar"><div class="world-xp-fill" id="chess-xp-fill" style="width:0%"></div></div>
+            <span class="world-xp-text" id="chess-xp-text">0 XP</span>
           </div>
-          <div class="fp-card" data-mode="words">
-            <span class="fp-icon">📝</span><h3>Wortmodus</h3>
-            <p>Bestimmte Wortanzahl so schnell wie möglich</p>
-            <div class="fp-options">
-              <button class="fp-opt active" data-words="25">25</button>
-              <button class="fp-opt" data-words="50">50</button>
-              <button class="fp-opt" data-words="100">100</button>
-            </div>
-          </div>
-        </div>
-        <div class="freeplay-difficulty">
-          <label>Texttyp:</label>
-          <select id="fp-text-type">
-            <option value="common">Häufige Wörter</option>
-            <option value="sentences">Sätze</option>
-            <option value="numbers">Zahlen & Symbole</option>
-            <option value="code">Code-Snippets</option>
-          </select>
-        </div>
-        <button class="btn-primary btn-lg" id="btn-start-freeplay">Training starten ▶</button>
-      </section>
-
-      <!-- ════════ MULTIPLAYER ════════ -->
-      <section class="view" id="view-multiplayer">
-        <div class="view-header">
-          <h2>⚡ Multiplayer</h2>
-          <p>Fordere andere heraus und messe dich in Echtzeit</p>
-        </div>
-        <div class="mp-action-grid">
-          <div class="mp-action-card">
-            <span class="mp-action-icon">🏁</span>
-            <h3>Rennen erstellen</h3>
-            <p>Privater oder öffentlicher Rennraum</p>
-            <div class="mp-form">
-              <input type="text" id="mp-room-name" placeholder="Raumname (optional)" maxlength="30" class="mp-input" />
-              <select id="mp-text-type-sel" class="mp-select">
-                <option value="common">Häufige Wörter</option>
-                <option value="sentences">Sätze</option>
-                <option value="code">Code</option>
-              </select>
-              <div class="fp-options">
-                <button class="fp-opt active" data-race-vis="private">🔒 Privat</button>
-                <button class="fp-opt" data-race-vis="public">🌍 Öffentlich</button>
-              </div>
-            </div>
-            <button class="btn-primary" id="btn-mp-create" style="margin-top:.75rem;width:100%">Raum erstellen ▶</button>
-          </div>
-          <div class="mp-action-card">
-            <span class="mp-action-icon">🔑</span>
-            <h3>Mit Code beitreten</h3>
-            <p>Tritt einem Rennen mit Raum-Code bei</p>
-            <div class="code-input-row" style="margin-top:1rem">
-              <input type="text" id="mp-join-code-input" placeholder="CODE" maxlength="6"
-                     style="text-transform:uppercase;font-family:var(--font-mono);letter-spacing:.2em;font-size:1.2rem;flex:1" />
-              <button class="btn-primary" id="btn-mp-join-code">▶</button>
-            </div>
-          </div>
-          <div class="mp-action-card">
-            <span class="mp-action-icon">⚡</span>
-            <h3>Schnell-Match</h3>
-            <p>Werde automatisch einem passenden Rennen zugewiesen</p>
-            <button class="btn-primary" id="btn-mp-quickmatch" style="margin-top:1rem;width:100%">Schnell-Match starten</button>
-          </div>
+          <div class="world-last" id="chess-last">Noch nicht gestartet</div>
+          <a href="chess.html" class="world-btn" id="chess-cta">♟ Schach starten ▶</a>
         </div>
 
-        <div class="mp-public-section">
-          <div class="mp-section-header">
-            <h3>🌍 Öffentliche Räume</h3>
-            <button class="btn-ghost btn-sm" id="btn-mp-refresh">↺ Aktualisieren</button>
-          </div>
-          <div id="mp-public-rooms" class="mp-public-rooms">
-            <p class="empty-hint">Keine öffentlichen Räume aktiv.</p>
-          </div>
-        </div>
+      </div>
+    </div>
 
-        <div class="mp-online-section">
-          <h3>👥 Gerade online</h3>
-          <div id="mp-online-users" class="mp-online-users">
-            <p class="empty-hint">Lade…</p>
-          </div>
-        </div>
-      </section>
+    <!-- HEUTE -->
+    <div class="hub-section">
+      <div class="hub-section-title">Heute – Schnellstart</div>
+      <div class="today-grid" id="today-grid">
+        <a href="typemaster.html" class="today-card">
+          <span class="today-card-icon">⚡</span>
+          <div class="today-card-info"><h4>Schnell-Rennen</h4><p>Multiplayer – direkt starten</p></div>
+          <span class="today-card-tag tag-new">LIVE</span>
+        </a>
+        <a href="chess.html#puzzles" class="today-card" id="card-daily-puzzle">
+          <span class="today-card-icon">🧩</span>
+          <div class="today-card-info"><h4>Tages-Puzzle</h4><p>Schach-Taktik des Tages</p></div>
+          <span class="today-card-tag tag-daily">TÄGLICH</span>
+        </a>
+        <a href="typemaster.html" class="today-card" id="card-typing-challenge">
+          <span class="today-card-icon">📅</span>
+          <div class="today-card-info"><h4>Tipp-Challenge</h4><p>Heutige Schreib-Aufgabe</p></div>
+          <span class="today-card-tag tag-daily">TÄGLICH</span>
+        </a>
+        <a href="chess.html" class="today-card" id="card-streak-reminder">
+          <span class="today-card-icon">🔥</span>
+          <div class="today-card-info"><h4>Streak halten</h4><p id="streak-reminder-text">Trainiere heute!</p></div>
+          <span class="today-card-tag tag-streak" id="streak-tag">0 Tage</span>
+        </a>
+      </div>
+    </div>
 
-      <!-- ════════ LEADERBOARD ════════ -->
-      <section class="view" id="view-leaderboard">
-        <div class="view-header">
-          <h2>🏆 Bestenliste</h2>
-          <p>Die besten TypeMaster weltweit</p>
-        </div>
-        <div class="lb-tabs">
-          <button class="lb-tab active" data-lb="wpm">⚡ WPM</button>
-          <button class="lb-tab" data-lb="acc">🎯 Genauigkeit</button>
-          <button class="lb-tab" data-lb="level">⭐ Level</button>
-          <button class="lb-tab" data-lb="streak">🔥 Streak</button>
-        </div>
-        <div class="lb-my-rank" id="lb-my-rank">
-          <span>Dein Rang:</span><span id="lb-my-rank-num">–</span>
-        </div>
-        <div id="leaderboard-list" class="leaderboard-list">
-          <p class="empty-hint">Lade Bestenliste…</p>
-        </div>
-      </section>
+    <!-- ACHIEVEMENTS -->
+    <div class="hub-section">
+      <div class="hub-section-title">Letzte Achievements</div>
+      <div class="ach-strip" id="hub-ach-strip">
+        <span class="ach-chip locked">🧩 Erstes Puzzle</span>
+        <span class="ach-chip locked">⌨ Erster Schritt</span>
+        <span class="ach-chip locked">🔥 3 Tage Streak</span>
+        <span class="ach-chip locked">🏆 Erste Partie</span>
+        <span class="ach-chip locked">🚀 Speed-Tipper</span>
+      </div>
+    </div>
 
-      <!-- ════════ STATS ════════ -->
-      <section class="view" id="view-stats">
-        <div class="view-header"><h2>Statistiken</h2><p>Dein Fortschritt auf einen Blick</p></div>
-        <div class="stats-grid">
-          <div class="stat-block"><h3>WPM-Verlauf</h3><canvas id="chart-wpm" height="120"></canvas></div>
-          <div class="stat-block"><h3>Genauigkeit</h3><canvas id="chart-acc" height="120"></canvas></div>
-          <div class="stat-block full-width"><h3>Problemtasten</h3><div id="problem-heatmap" class="problem-heatmap"></div></div>
-          <div class="stat-block"><h3>Persönliche Bestleistungen</h3><div id="personal-bests" class="personal-bests"></div></div>
-          <div class="stat-block"><h3>Aktivitätsverlauf</h3><div id="activity-grid" class="activity-grid"></div></div>
-        </div>
-      </section>
+    <!-- LEADERBOARD MINI -->
+    <div class="hub-section">
+      <div class="hub-section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>🏆 Top-Spieler (Schach-XP)</span>
+        <a href="chess.html" style="font-size:.72rem;color:var(--accent);text-decoration:none;font-weight:700">Alle ansehen →</a>
+      </div>
+      <div id="hub-lb-list" style="display:flex;flex-direction:column;gap:.4rem">
+        <div style="color:var(--text-3);font-size:.85rem;padding:.5rem 0">⏳ Lade…</div>
+      </div>
+    </div>
 
-      <!-- ════════ ACHIEVEMENTS ════════ -->
-      <section class="view" id="view-achievements">
-        <div class="view-header"><h2>Achievements</h2><p id="ach-progress-text">0 von 0 freigeschaltet</p></div>
-        <div class="achievements-grid" id="achievements-grid"></div>
-      </section>
+    <!-- AKTIVITÄT -->
+    <div class="hub-section">
+      <div class="hub-section-title">Aktivität – letzte 60 Tage</div>
+      <div class="activity-mini" id="hub-activity"></div>
+      <p style="font-size:.72rem;color:var(--text-3);margin-top:.5rem">
+        <span id="hub-active-days">0</span> aktive Tage in den letzten 60 Tagen
+      </p>
+    </div>
 
-      <!-- ════════ SETTINGS ════════ -->
-      <section class="view" id="view-settings">
-        <div class="view-header"><h2>Einstellungen</h2></div>
-        <div class="settings-list">
-          <div class="settings-section">
-            <h3>Profil</h3>
-            <div class="setting-row">
-              <label>Anzeigename</label>
-              <div style="display:flex;gap:.5rem;align-items:center">
-                <input type="text" id="set-username" maxlength="20"
-                       style="background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.35rem .75rem;color:var(--text);font-family:var(--font-ui);width:160px" />
-                <button class="btn-ghost" id="btn-save-username">Speichern</button>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label>Avatar</label>
-              <div class="avatar-grid avatar-grid-mini" id="avatar-picker-settings"></div>
-            </div>
-          </div>
-          <div class="settings-section">
-            <h3>Darstellung</h3>
-            <div class="setting-row">
-              <label>Theme</label>
-              <div class="toggle-group">
-                <button class="toggle-btn active" id="set-dark">🌙 Dunkel</button>
-                <button class="toggle-btn" id="set-light">☀️ Hell</button>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label>Schriftgröße Training</label>
-              <input type="range" id="set-fontsize" min="14" max="28" value="18" />
-              <span id="set-fontsize-val">18px</span>
-            </div>
-          </div>
-          <div class="settings-section">
-            <h3>Training</h3>
-            <div class="setting-row"><label>Backspace erlauben</label><label class="switch"><input type="checkbox" id="set-backspace" checked /><span class="slider"></span></label></div>
-            <div class="setting-row"><label>Virtuelle Tastatur</label><label class="switch"><input type="checkbox" id="set-keyboard" checked /><span class="slider"></span></label></div>
-            <div class="setting-row"><label>Finger-Legende</label><label class="switch"><input type="checkbox" id="set-fingerlegend" checked /><span class="slider"></span></label></div>
-            <div class="setting-row"><label>Soundeffekte</label><label class="switch"><input type="checkbox" id="set-sound" checked /><span class="slider"></span></label></div>
-          </div>
-          <div class="settings-section">
-            <h3>Daten</h3>
-            <div class="setting-row"><label>Fortschritt exportieren</label><button class="btn-ghost" id="btn-export">📤 Export JSON</button></div>
-            <div class="setting-row"><label>Fortschritt importieren</label><button class="btn-ghost" id="btn-import">📥 Import JSON</button><input type="file" id="import-file" accept=".json" style="display:none" /></div>
-            <div class="setting-row danger"><label>Alle Daten zurücksetzen</label><button class="btn-danger" id="btn-reset">🗑 Reset</button></div>
-          </div>
-        </div>
-      </section>
+  </main>
 
-    </main>
-  </div><!-- /app -->
+  <!-- FOOTER -->
+  <footer class="hub-footer">
+    <p>LearnHub &copy; 2025 · Powered by Firebase · <a href="typemaster.html" style="color:var(--accent);text-decoration:none">TypeMaster</a> · <a href="chess.html" style="color:var(--green);text-decoration:none">ChessMaster</a></p>
+  </footer>
 
-  <!-- ACHIEVEMENT TOAST -->
-  <div id="achievement-toast" class="achievement-toast hidden">
-    <span class="at-icon" id="at-icon">🏆</span>
-    <div class="at-text">
-      <span class="at-title">Achievement freigeschaltet!</span>
-      <span class="at-name" id="at-name">Erster Schritt</span>
+  <!-- SYNC MODAL -->
+  <div class="sync-modal hidden" id="sync-modal">
+    <div class="sync-box">
+      <div style="font-size:2rem;text-align:center;margin-bottom:.5rem">🔗</div>
+      <h2>Geräte synchronisieren</h2>
+      <p>Gib deinen Sync-Code auf einem anderen Gerät ein, um deinen Fortschritt zu übertragen.</p>
+      <div class="sync-code-display" id="sync-code-display">……</div>
+      <p style="font-size:.78rem;color:var(--text-3);text-align:center;margin-bottom:1rem">Dein persönlicher Code – teile ihn mit dir selbst</p>
+      <div class="hub-section-title">Code eines anderen Geräts eingeben:</div>
+      <div class="sync-input-row">
+        <input type="text" id="sync-code-input" maxlength="8" placeholder="CODE" autocomplete="off" />
+        <button class="btn-primary" id="btn-use-sync">Übertragen ▶</button>
+      </div>
+      <div id="sync-feedback" style="font-size:.82rem;margin-bottom:.75rem"></div>
+      <button class="btn-ghost" id="btn-sync-close" style="width:100%">Schließen</button>
     </div>
   </div>
 
-  <!-- LEVEL UP OVERLAY -->
-  <div id="levelup-overlay" class="levelup-overlay hidden">
-    <div class="lu-content">
-      <div class="lu-icon">⭐</div>
-      <h2>Level Up!</h2>
-      <p>Du bist jetzt Level <span id="lu-level">2</span></p>
-      <p class="lu-rank" id="lu-rank">Flinke Finger</p>
-      <button class="btn-primary" id="btn-lu-close">Weiter!</button>
-    </div>
-  </div>
-
-  <!-- Firebase ESM via CDN – type="module" für ES-Imports nötig -->
-  <script type="module" src="app.js"></script>
+  <script type="module" src="hub.js"></script>
 </body>
 </html>

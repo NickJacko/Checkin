@@ -996,13 +996,43 @@ function playTone(freq, dur, type = 'sine', vol = 0.12) {
   } catch (_) {}
 }
 
+/* Mechanical keyboard "click" — sharp attack, quick decay */
+function playClick(vol = 0.07) {
+  if (!STATE.settings.sound) return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    /* High-frequency click body */
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.015);
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.04);
+    /* Noise burst for "tactile" feel */
+    const buf  = ctx.createBuffer(1, ctx.sampleRate * 0.015, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const src = ctx.createBufferSource();
+    const ng  = ctx.createGain();
+    src.buffer = buf; src.connect(ng); ng.connect(ctx.destination);
+    ng.gain.setValueAtTime(vol * 0.4, ctx.currentTime);
+    ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.015);
+    src.start(ctx.currentTime);
+  } catch (_) {}
+}
+
 const SFX = {
-  keyCorrect:  () => playTone(600, 0.06, 'sine',     0.08),
-  keyWrong:    () => playTone(180, 0.18, 'sawtooth', 0.12),
+  keyCorrect:  () => playClick(0.07),
+  keyWrong:    () => { playTone(140, 0.22, 'sawtooth', 0.10); playTone(110, 0.15, 'square', 0.06); },
+  wordDone:    () => playClick(0.12), /* slightly louder click for space/word boundary */
   lessonDone:  () => {
-    playTone(523, 0.1);
-    setTimeout(() => playTone(659, 0.1),  100);
-    setTimeout(() => playTone(784, 0.2),  200);
+    playTone(523, 0.12); setTimeout(() => playTone(659, 0.12), 110);
+    setTimeout(() => playTone(784, 0.12), 220); setTimeout(() => playTone(1047, 0.25), 330);
   },
   levelUp:     () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.15), i * 100)),
   achievement: () => { playTone(880, 0.08); setTimeout(() => playTone(1108, 0.15), 80); },
@@ -1138,6 +1168,7 @@ const Engine = (() => {
     wordGoal        = opts.wordGoal   || 0;
     onComplete      = opts.onComplete || null;
     clearInterval(timerInterval);
+    resetLiveSparkline();
     renderTextDisplay();
     updateLiveStats();
     highlightNextKey(text[0]);
@@ -1180,7 +1211,7 @@ const Engine = (() => {
     }
 
     if (correct) {
-      SFX.keyCorrect();
+      if (char === ' ') SFX.wordDone(); else SFX.keyCorrect();
       flashKey(char, true);
       errorPositions.delete(position);
     } else {
@@ -1194,6 +1225,7 @@ const Engine = (() => {
     position++;
     updateDisplay();
     updateLiveStats();
+    updateLiveSparkline();
 
     if (position >= text.length)                              { finish(); return; }
     if (currentMode === 'words' && wordGoal > 0) {
@@ -2305,3 +2337,86 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ═══════════════════════════════════════════════════════
+   ERWEITERUNG — LIVE-WPM-SPARKLINE
+═══════════════════════════════════════════════════════ */
+let _sparkSamples = [];
+let _sparkLastPos = 0;
+const SPARK_INTERVAL = 8; /* sample every N characters */
+
+function resetLiveSparkline() {
+  _sparkSamples = [];
+  _sparkLastPos = 0;
+  const c = document.getElementById('live-wpm-spark');
+  if (c) {
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+  }
+}
+
+function updateLiveSparkline() {
+  /* Access Engine internals via the live stats display */
+  const wpmEl = document.getElementById('ls-wpm');
+  if (!wpmEl) return;
+  const wpm = parseInt(wpmEl.textContent) || 0;
+  if (wpm <= 0) return;
+
+  /* Sample every SPARK_INTERVAL characters */
+  _sparkLastPos++;
+  if (_sparkLastPos % SPARK_INTERVAL !== 0) return;
+
+  _sparkSamples.push(wpm);
+  if (_sparkSamples.length > 40) _sparkSamples.shift();
+
+  drawSparkline();
+}
+
+function drawSparkline() {
+  const canvas = document.getElementById('live-wpm-spark');
+  if (!canvas || _sparkSamples.length < 2) return;
+
+  const W = canvas.offsetWidth || 120;
+  canvas.width = W;
+  const H    = canvas.height;
+  const ctx  = canvas.getContext('2d');
+  const dark = document.documentElement.dataset.theme === 'dark';
+
+  ctx.clearRect(0, 0, W, H);
+
+  const vals = _sparkSamples;
+  const max  = Math.max(...vals, 1);
+  const min  = Math.max(0, Math.min(...vals) - 5);
+  const pad  = { t: 3, b: 3, l: 2, r: 2 };
+  const cw   = W - pad.l - pad.r;
+  const ch   = H - pad.t - pad.b;
+
+  const pts = vals.map((v, i) => ({
+    x: pad.l + (i / (vals.length - 1)) * cw,
+    y: pad.t + ch - ((v - min) / Math.max(max - min, 1)) * ch,
+  }));
+
+  /* Fill */
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pad.t + ch);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, pad.t + ch);
+  ctx.closePath();
+  ctx.fillStyle = dark ? 'rgba(124,108,248,.25)' : 'rgba(124,108,248,.15)';
+  ctx.fill();
+
+  /* Line */
+  ctx.beginPath();
+  ctx.strokeStyle = '#7c6cf8';
+  ctx.lineWidth = 1.8;
+  ctx.lineJoin = 'round';
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+
+  /* Last point dot */
+  const last = pts[pts.length - 1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#7c6cf8';
+  ctx.fill();
+}
