@@ -41,7 +41,7 @@ const GLOBAL_RANKS = [
   { level:1,  title:'Einsteiger',    xp:0      },
   { level:2,  title:'Lernender',     xp:200    },
   { level:3,  title:'Enthusiast',    xp:600    },
-  { level:4,  title:'Fortgeschrittenr',xp:1200 },
+  { level:4,  title:'Fortgeschrittener', xp:1200 },
   { level:5,  title:'Talent',        xp:2200   },
   { level:6,  title:'Profi',         xp:3800   },
   { level:7,  title:'Experte',       xp:6000   },
@@ -147,12 +147,12 @@ function renderTypingCard() {
   setText('typing-xp-text', xp + ' XP');
   setText('typing-cta', '⌨ Weitermachen ▶');
 
-  /* XP bar: estimate progress within level */
-  const XP_THRESHOLDS = [0,100,250,500,900,1400,2000,2800,3800,5000,6500,8500,11000,14000,18000];
-  const levelIdx = Math.min(level - 1, XP_THRESHOLDS.length - 1);
-  const nextThreshold = XP_THRESHOLDS[levelIdx + 1] || XP_THRESHOLDS[levelIdx] * 2;
-  const pct = Math.min(100, ((xp - XP_THRESHOLDS[levelIdx]) / (nextThreshold - XP_THRESHOLDS[levelIdx])) * 100);
-  setStyle('typing-xp-fill', 'width', Math.max(0, pct) + '%');
+  /* XP bar: use currentLevelXp (XP within the current level) if available */
+  const XP_PER_LEVEL = [100,250,500,900,1400,2000,2800,3800,5000,6500,8500,11000,14000,18000,Infinity];
+  const levelXp      = t.currentLevelXp != null ? t.currentLevelXp : 0;
+  const levelNeeded  = XP_PER_LEVEL[Math.min(level - 1, XP_PER_LEVEL.length - 1)];
+  const pct          = Math.min(100, Math.max(0, (levelXp / levelNeeded) * 100));
+  setStyle('typing-xp-fill', 'width', pct + '%');
 
   const last = t.activityLog ? Object.keys(t.activityLog).sort().pop() : null;
   setText('typing-last', last ? 'Zuletzt aktiv: ' + formatDate(last) : 'Gestartet!');

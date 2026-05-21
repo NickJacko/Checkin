@@ -2285,6 +2285,43 @@ async function init() {
   buildKeyboard();
 
   const splashStatus = document.getElementById('splash-status');
+  let appBooted = false;
+  let eventsBound = false;
+
+  function bootApp() {
+    if (appBooted) return;
+    appBooted = true;
+
+    if (!eventsBound) {
+      applySettings();
+      updateNavXP();
+      bindEvents();
+      eventsBound = true;
+    }
+
+    setTimeout(() => {
+      const splash = document.getElementById('splash');
+      if (splash) splash.classList.add('fade-out');
+      setTimeout(() => {
+        if (splash) splash.style.display = 'none';
+        document.getElementById('app')?.classList.remove('hidden');
+        showView('dashboard');
+
+        if (!STATE.profile.setupDone) {
+          setTimeout(showProfileSetup, 600);
+        }
+      }, 400);
+    }, 1800);
+  }
+
+  // Fallback: boot offline if Firebase doesn't respond within 8 seconds
+  setTimeout(() => {
+    if (!appBooted) {
+      if (splashStatus) splashStatus.textContent = 'Offline-Modus';
+      updateOnlineUI(false);
+      bootApp();
+    }
+  }, 8000);
 
   // Firebase anonymous sign-in
   try {
@@ -2295,44 +2332,23 @@ async function init() {
     if (splashStatus) splashStatus.textContent = 'Offline-Modus';
   }
 
-  // Auth state listener
+  // Auth state listener – may fire more than once; boot only on first call
   onAuthStateChanged(auth, async user => {
     if (user) {
       currentUserId = user.uid;
-      if (splashStatus) splashStatus.textContent = 'Lade Profil…';
+      if (!appBooted && splashStatus) splashStatus.textContent = 'Lade Profil…';
       const cloudLoaded = await loadFromCloud();
       if (!cloudLoaded) {
-        // First visit: upload local state
         syncToCloud();
       }
       startPresence();
       subscribeOnlineUsers();
       updateOnlineUI(true);
     } else {
-      // Auth failed or signed out – work fully offline
       updateOnlineUI(false);
     }
 
-    // Boot UI regardless
-    applySettings();
-    updateNavXP();
-    bindEvents();
-
-    // Splash → App
-    setTimeout(() => {
-      const splash = document.getElementById('splash');
-      if (splash) splash.classList.add('fade-out');
-      setTimeout(() => {
-        if (splash) splash.style.display = 'none';
-        document.getElementById('app')?.classList.remove('hidden');
-        showView('dashboard');
-
-        // Show profile setup on first visit
-        if (!STATE.profile.setupDone) {
-          setTimeout(showProfileSetup, 600);
-        }
-      }, 400);
-    }, 1800);
+    bootApp();
   });
 }
 

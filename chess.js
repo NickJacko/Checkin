@@ -101,10 +101,10 @@ const CHESS_COURSE_MODULES = [
         task: 'Ziehe den Bauern auf e4.', startFen:'4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', moveTask:{from:'e2',to:'e4'} },
       { id:'m2', title:'Der Springer',          desc:'L-förmige Bewegung', xp:25,
         explanation: 'Der Springer springt in einem „L": zwei Felder in eine Richtung, dann ein Feld senkrecht dazu. Er ist die einzige Figur, die über andere springen kann.',
-        task: 'Bringe den Springer von g1 nach f3.', startFen:'4k3/8/8/8/8/8/8/4K2N w - - 0 1', moveTask:{from:'h1',to:'f2'} },
+        task: 'Bringe den Springer von g1 nach f3.', startFen:'4k3/8/8/8/8/8/8/4K1N1 w - - 0 1', moveTask:{from:'g1',to:'f3'} },
       { id:'m3', title:'Der Läufer',            desc:'Diagonal unbegrenzt', xp:25,
         explanation: 'Der Läufer bewegt sich beliebig weit diagonal. Jeder Läufer bleibt auf der Farbe, auf der er gestartet ist.',
-        task: 'Ziehe den Läufer auf c4.', startFen:'4k3/8/8/8/8/8/8/2B1K3 w - - 0 1', moveTask:{from:'c1',to:'c4'} },
+        task: 'Ziehe den Läufer auf c4.', startFen:'4k3/8/8/8/8/8/4B3/4K3 w - - 0 1', moveTask:{from:'e2',to:'c4'} },
       { id:'m4', title:'Der Turm',              desc:'Horizontal und vertikal', xp:25,
         explanation: 'Der Turm zieht beliebig weit horizontal oder vertikal. Er ist sehr stark im Endspiel und auf offenen Linien.',
         task: 'Ziehe den Turm auf e1.', startFen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1', moveTask:{from:'a1',to:'e1'} },
@@ -124,7 +124,7 @@ const CHESS_COURSE_MODULES = [
         task: 'Gib dem schwarzen König Schach mit der Dame.', startFen:'4k3/8/8/8/8/8/8/3QK3 w - - 0 1', moveTask:{from:'d1',to:'d8'} },
       { id:'c2', title:'Schachmatt',             desc:'Der König kann nicht entkommen', xp:40,
         explanation: 'Schachmatt endet das Spiel: Der König steht im Schach und hat keinen legalen Zug. Wer matt setzt, gewinnt.',
-        task: 'Setze den schwarzen König mit der Dame matt (Dh7#).', startFen:'5rk1/8/8/8/8/8/8/3QK3 w - - 0 1', moveTask:{from:'d1',to:'h5'} },
+        task: 'Setze den schwarzen König mit der Dame matt (Dh7#).', startFen:'5rk1/8/7K/8/8/8/8/7Q w - - 0 1', moveTask:{from:'h1',to:'h7'} },
       { id:'c3', title:'Patt',                   desc:'Keine Züge, aber kein Schach', xp:30,
         explanation: 'Patt tritt auf, wenn ein Spieler am Zug ist, aber keinen legalen Zug hat und der König nicht im Schach steht. Das Spiel endet unentschieden.',
         task: 'Klicke auf das Feld, auf das der schwarze König nicht ziehen kann.', targetSquare:'f8', startFen:'5k2/5Q2/5K2/8/8/8/8/8 b - - 0 1' },
@@ -390,7 +390,7 @@ function getNextRank() {
 function awardXP(amount) {
   const oldRank = getCurrentRank();
   CS.xp += amount;
-  CS.currentLevelXp = CS.xp;
+  CS.currentLevelXp = CS.xp - getCurrentRank().xp;
   const newRank = getCurrentRank();
   CS.level = newRank.level;
   saveChessState();
@@ -1072,7 +1072,6 @@ function executeMove(fromR, fromF, toR, toF, promoType=QUEEN) {
       CS.gamesWon++;
       checkAndUnlock('first_win');
     }
-    checkAndUnlock('games_10');
     checkAllAchievements();
     saveChessState();
     progressDailyChallenge('game');
@@ -1567,6 +1566,38 @@ async function init() {
   initDailyChallenge();
 
   const splashStatus = document.getElementById('splash-status');
+  let appBooted   = false;
+  let eventsBound = false;
+
+  function bootApp() {
+    if (appBooted) return;
+    appBooted = true;
+    if (!eventsBound) {
+      applySettings();
+      updateNavXP();
+      bindEvents();
+      eventsBound = true;
+    }
+    setTimeout(() => {
+      const splash = document.getElementById('splash');
+      if (splash) splash.classList.add('fade-out');
+      setTimeout(() => {
+        if (splash) splash.style.display = 'none';
+        document.getElementById('app')?.classList.remove('hidden');
+        const firstUnsolved = PUZZLES.findIndex(p => !CS.solvedPuzzles[p.id]);
+        loadPuzzle(firstUnsolved >= 0 ? firstUnsolved : 0);
+        showView('dashboard');
+      }, 400);
+    }, 1600);
+  }
+
+  setTimeout(() => {
+    if (!appBooted) {
+      if (splashStatus) splashStatus.textContent = 'Offline-Modus';
+      updateOnlineUI(false);
+      bootApp();
+    }
+  }, 8000);
 
   try {
     if (splashStatus) splashStatus.textContent = 'Verbinde mit Server…';
@@ -1579,7 +1610,7 @@ async function init() {
   onAuthStateChanged(auth, async user => {
     if (user) {
       currentUserId = user.uid;
-      if (splashStatus) splashStatus.textContent = 'Lade Schach-Profil…';
+      if (!appBooted && splashStatus) splashStatus.textContent = 'Lade Schach-Profil…';
       const cloudLoaded = await loadChessFromFirebase();
       if (!cloudLoaded) syncChessToFirebase();
       updateOnlineUI(true);
@@ -1587,25 +1618,7 @@ async function init() {
     } else {
       updateOnlineUI(false);
     }
-
-    applySettings();
-    updateNavXP();
-    bindEvents();
-
-    setTimeout(() => {
-      const splash = document.getElementById('splash');
-      if (splash) splash.classList.add('fade-out');
-      setTimeout(() => {
-        if (splash) splash.style.display = 'none';
-        document.getElementById('app')?.classList.remove('hidden');
-
-        // Puzzles: load first unsolved
-        const firstUnsolved = PUZZLES.findIndex(p => !CS.solvedPuzzles[p.id]);
-        loadPuzzle(firstUnsolved >= 0 ? firstUnsolved : 0);
-
-        showView('dashboard');
-      }, 400);
-    }, 1600);
+    bootApp();
   });
 }
 
@@ -3065,22 +3078,6 @@ function bindLeaderboardEvents() {
     if (e.key === 'Enter') saveProfile();
   });
 }
-
-/* ── Patch showView to load leaderboard on demand ── */
-const _origShowView = showView;
-window.__showViewLbPatch = function(name) {
-  _origShowView(name);
-  if (name === 'leaderboard') {
-    bindLeaderboardEvents();
-    loadLeaderboard();
-  }
-  if (name === 'settings') {
-    renderAvatarGrid();
-    /* Pre-fill name */
-    const inp = document.getElementById('profile-name-input');
-    if (inp && !inp.value) inp.value = CS.settings?.displayName || '';
-  }
-};
 
 /* ── Patch awardXP to sync leaderboard ── */
 const _origAwardXP = awardXP;
