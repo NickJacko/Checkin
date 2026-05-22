@@ -289,6 +289,7 @@ a{color:inherit;text-decoration:none}
 .rank-row.r1{border-color:rgba(245,158,11,.28)}
 .rank-row.r2{border-color:rgba(148,163,184,.18)}
 .rank-row.r3{border-color:rgba(205,127,50,.18)}
+.rank-row{cursor:pointer}
 
 /* ── PROFILE ── */
 .prof-banner{
@@ -536,6 +537,53 @@ a{color:inherit;text-decoration:none}
 .ach-unlock-ds{color:var(--tx2);font-size:.88rem;margin-bottom:.85rem}
 .ach-unlock-xp{font-size:1.1rem;font-weight:800;color:var(--go);margin-bottom:1.5rem}
 
+/* ── CHART ── */
+.chart-wrap{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:.85rem;margin-bottom:1.5rem;overflow:hidden}
+canvas.mini-chart{display:block;width:100%;height:100px}
+
+/* ── H2H ── */
+.h2h-grid{display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.5rem}
+.h2h-row{display:flex;align-items:center;gap:.6rem;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:.55rem .85rem;transition:all var(--t)}
+.h2h-row:hover{border-color:rgba(124,58,237,.3);background:var(--surf2)}
+.h2h-ava{font-size:1.25rem;flex-shrink:0}
+.h2h-name{flex:1;font-size:.82rem;font-weight:600}
+.h2h-rec{font-family:'JetBrains Mono',monospace;font-size:.8rem;white-space:nowrap;flex-shrink:0}
+.h2h-w{color:var(--gr)}.h2h-l{color:var(--rd)}
+.h2h-bar-wrap{width:60px;height:5px;background:rgba(239,68,68,.25);border-radius:99px;overflow:hidden;flex-shrink:0}
+.h2h-bar-fill{height:100%;background:var(--gr);border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.h2h-pct{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--tx3);min-width:28px;text-align:right}
+
+/* ── QUICK REMATCH ── */
+.btn-rematch{
+  background:none;border:1px solid var(--bdr);color:var(--tx3);
+  padding:.25rem .6rem;border-radius:99px;font-size:.68rem;font-weight:600;
+  transition:all var(--t);flex-shrink:0;white-space:nowrap;
+}
+.btn-rematch:hover{border-color:var(--pu);color:var(--pu2)}
+.rg-standings{color:var(--tx2);margin-top:.15rem}
+.hist-win{border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.04)}
+
+/* ── GAME RESULT SCREEN ── */
+.game-result-wrap{text-align:center;padding:1.5rem 0}
+.gr-winner-ava{font-size:5rem;display:block;margin-bottom:.5rem;animation:float 3s ease-in-out infinite}
+.gr-winner-name{
+  font-size:2rem;font-weight:900;margin-bottom:.2rem;
+  background:linear-gradient(135deg,var(--go),var(--pu2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.gr-winner-sub{font-size:.88rem;color:var(--tx2);margin-bottom:1.5rem}
+.gr-standings{display:flex;flex-direction:column;gap:.4rem;margin:0 auto 1.5rem;max-width:400px;text-align:left}
+.gr-row{display:flex;align-items:center;gap:.65rem;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:.65rem .9rem;transition:all var(--t)}
+.gr-win{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.06)}
+.gr-medal{font-size:1.2rem;min-width:26px}
+.gr-ava{font-size:1.3rem}
+.gr-name{flex:1;font-weight:700;font-size:.88rem}
+.gr-score{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--go)}
+.gr-ach-section{background:var(--surf);border:1px solid rgba(124,58,237,.3);border-radius:var(--r);padding:1rem;margin-bottom:.5rem;text-align:left}
+.gr-ach-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--pu2);margin-bottom:.65rem}
+.gr-ach-row{display:flex;align-items:center;gap:.5rem;font-size:.82rem;margin-bottom:.4rem;color:var(--rc,var(--pu2));background:var(--rbg,rgba(124,58,237,.1));border-radius:var(--rsm);padding:.3rem .6rem}
+.gr-ach-xp{margin-left:auto;font-family:'JetBrains Mono',monospace;color:var(--go);font-size:.75rem}
+
 /* ── GLOBAL ANIMATIONS ── */
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @keyframes achPop{0%{transform:scale(.78);opacity:0}65%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
@@ -561,6 +609,61 @@ a{color:inherit;text-decoration:none}
   #wz-toast{bottom:82px}
   #wz-toast.show{bottom:90px}
 }
+
+/* ── PHOTO UI v2 ── */
+.photo-btns{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1rem}
+.photo-state-wrap{border:1px solid var(--bdr);border-radius:var(--rlg);overflow:hidden;margin-bottom:1rem}
+.photo-preview-img{width:100%;max-height:260px;object-fit:contain;display:block;background:var(--bg2)}
+.ocr-status-bar{padding:.7rem 1rem;display:flex;align-items:center;gap:.65rem;border-top:1px solid var(--bdr)}
+.ocr-sb-ico{font-size:1rem;flex-shrink:0}
+.ocr-sb-info{flex:1;min-width:0}
+.ocr-sb-msg{font-size:.78rem;color:var(--tx2);margin-bottom:.3rem}
+.ocr-sb-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
+.ocr-sb-fill{height:100%;background:linear-gradient(90deg,var(--pu),var(--go));border-radius:99px;transition:width .25s ease;width:0%}
+
+/* ── SEASON BANNER ── */
+.season-banner{
+  background:linear-gradient(135deg,rgba(124,58,237,.15),rgba(245,158,11,.1));
+  border:1px solid rgba(124,58,237,.25);
+  border-radius:var(--r);padding:.8rem 1rem;
+  display:flex;align-items:center;gap:.75rem;
+  margin-bottom:1.5rem;cursor:pointer;transition:all var(--t);
+}
+.season-banner:hover{border-color:rgba(124,58,237,.5);background:rgba(124,58,237,.2)}
+.sb-ico{font-size:1.5rem;flex-shrink:0}
+.sb-info h4{font-size:.85rem;font-weight:700;margin-bottom:.1rem}
+.sb-info p{font-size:.72rem;color:var(--tx2)}
+.sb-arrow{margin-left:auto;color:var(--tx3);font-size:1.15rem;flex-shrink:0}
+
+/* ── GAME DETAIL MODAL ── */
+.gd-summary{display:flex;align-items:center;gap:.75rem;padding:.75rem;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:var(--r);margin-bottom:1rem}
+.gd-win-ava{font-size:2rem;flex-shrink:0}
+.gd-win-info h4{font-size:.95rem;font-weight:800;margin-bottom:.12rem}
+.gd-win-info p{font-size:.72rem;color:var(--tx2)}
+.gd-standings{display:flex;flex-direction:column;gap:.35rem;margin-bottom:1rem}
+.gd-row{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r)}
+.gd-row.gd-win{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.05)}
+.gd-medal{font-size:.95rem;min-width:22px;text-align:center;flex-shrink:0}
+.gd-ava-sm{font-size:1.1rem;flex-shrink:0}
+.gd-name{flex:1;font-size:.84rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gd-sc{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--go);font-size:.84rem;flex-shrink:0}
+.gd-diff{font-size:.72rem;color:var(--tx3);margin-left:.3rem}
+
+/* ── EDIT PLAYER MODAL ── */
+.edit-cur-row{display:flex;align-items:center;gap:.85rem;padding:.8rem;background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);margin-bottom:1.25rem}
+.edit-cur-ava{font-size:2.4rem;line-height:1;flex-shrink:0}
+.edit-cur-info{font-size:.88rem;font-weight:700;line-height:1.4}
+.edit-cur-sub{font-size:.72rem;color:var(--tx2)}
+
+/* ── PROF EDIT BTN ── */
+.prof-edit-btn{
+  position:absolute;top:.75rem;right:.75rem;
+  background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);
+  color:rgba(255,255,255,.7);padding:.28rem .65rem;border-radius:99px;
+  font-size:.72rem;font-weight:600;transition:all var(--t);
+  backdrop-filter:blur(8px);cursor:pointer;
+}
+.prof-edit-btn:hover{border-color:var(--pu);color:var(--pu2);background:rgba(124,58,237,.25)}
 </style>
 </head>
 <body>
@@ -616,6 +719,7 @@ a{color:inherit;text-decoration:none}
           </div>
           <div class="dash-hstats" id="dash-hstats"></div>
         </div>
+        <div id="dash-season"></div>
         <div class="sec-title"><span class="sec-label">👑 Top Champions</span></div>
         <div class="podium-wrap" id="dash-podium">
           <div class="empty"><span class="empty-ico">🏆</span><p>Noch keine Spieler</p></div>
@@ -757,6 +861,49 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
+<!-- MODAL: GAME DETAIL -->
+<div class="wz-overlay hidden" id="modal-game-detail">
+  <div class="wz-modal">
+    <div class="modal-hd">
+      <h2>🃏 Spieldetails</h2>
+      <button class="modal-cls" data-close="modal-game-detail">✕</button>
+    </div>
+    <div id="game-detail-content"></div>
+    <div style="display:flex;gap:.65rem;margin-top:1.5rem;flex-wrap:wrap">
+      <button class="btn-ghost" id="btn-detail-delete" style="color:var(--rd);border-color:rgba(239,68,68,.3)">🗑 Löschen</button>
+      <button class="btn-sec" style="flex:1" id="btn-detail-rematch">⚡ Nochmal spielen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDIT PLAYER -->
+<div class="wz-overlay hidden" id="modal-edit-player">
+  <div class="wz-modal">
+    <div class="modal-hd">
+      <h2>✏️ Spieler bearbeiten</h2>
+      <button class="modal-cls" data-close="modal-edit-player">✕</button>
+    </div>
+    <div class="edit-cur-row">
+      <div class="edit-cur-ava" id="edit-cur-ava">🧙</div>
+      <div>
+        <div class="edit-cur-info" id="edit-player-name-display">–</div>
+        <div class="edit-cur-sub">Avatar &amp; Name ändern</div>
+      </div>
+    </div>
+    <div class="form-field">
+      <label>Name</label>
+      <input type="text" class="f-input" id="inp-edit-pname" placeholder="Wizard-Name…" maxlength="20" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>Avatar wählen</label>
+      <div class="ava-grid" id="ava-grid-edit"></div>
+    </div>
+    <input type="hidden" id="edit-player-id">
+    <button class="btn-pri full" id="btn-confirm-edit">✏️ Speichern</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script type="module" src="wizard.js"></script>
 </body>
 </html>

@@ -2,9 +2,11 @@
 
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, signInAnonymously }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs,
-  addDoc, setDoc, updateDoc, query, orderBy, limit,
+  addDoc, setDoc, updateDoc, deleteDoc, query, orderBy, limit,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -19,8 +21,9 @@ const FB = {
   messagingSenderId: '199496624018',
   appId:             '1:199496624018:web:a06afb19294d0635a8034b',
 };
-const app = initializeApp(FB);
-const db  = getFirestore(app);
+const app  = initializeApp(FB);
+const auth = getAuth(app);
+const db   = getFirestore(app);
 
 /* ═══════════════════════════════════════════════
    CONSTANTS
@@ -227,6 +230,81 @@ function evalAchievements(pid, newStats, gameResult) {
 /* ═══════════════════════════════════════════════
    SAVE GAME
 ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   QUICK REMATCH
+═══════════════════════════════════════════════ */
+function quickRematch(gameId) {
+  const g = S.games.find(g => g.id === gameId);
+  if (!g) return;
+  resetNG();
+  S.ng.pids = [...(g.players||[])].filter(id => S.players[id]);
+  switchTab('newgame');
+  renderNG0();
+  // Go directly to mode selection (step 1) since players are pre-selected
+  setTimeout(() => goNGStep(1), 100);
+  toast(`${S.ng.pids.length} Spieler vorausgewählt ⚡`, 'ok');
+}
+
+/* ═══════════════════════════════════════════════
+   GAME RESULT SCREEN
+═══════════════════════════════════════════════ */
+function showGameResult(scores, newlyUnlocked) {
+  const pids   = Object.keys(scores);
+  const sorted = [...pids].sort((a,b) => scores[b]-scores[a]);
+  const winner = sorted[0];
+  const wp     = S.players[winner];
+
+  const medals = ['🥇','🥈','🥉','🏅','🏅','🏅'];
+  const el = document.getElementById('gs-input');
+
+  el.innerHTML = `
+    <div class="game-result-wrap">
+      <div class="gr-winner-ava">${wp?.emoji||'🧙'}</div>
+      <div class="gr-winner-name">${esc(wp?.name||'?')}</div>
+      <div class="gr-winner-sub">🏆 Sieger · ${scores[winner]} Punkte</div>
+
+      <div class="gr-standings">
+        ${sorted.map((pid,i) => {
+          const p = S.players[pid];
+          const sc = scores[pid];
+          const isWin = i===0;
+          return `<div class="gr-row ${isWin?'gr-win':''}">
+            <span class="gr-medal">${medals[i]||'🏅'}</span>
+            <span class="gr-ava">${p?.emoji||'🧙'}</span>
+            <span class="gr-name">${esc(p?.name||'?')}</span>
+            <span class="gr-score">${sc} Pkt</span>
+          </div>`;
+        }).join('')}
+      </div>
+
+      ${newlyUnlocked.length ? `
+      <div class="gr-ach-section">
+        <div class="gr-ach-title">🎖 Achievements freigeschaltet!</div>
+        ${newlyUnlocked.map(a => {
+          const rc = RARITY_COLORS[a.r]||{};
+          return `<div class="gr-ach-row" style="--rc:${rc.c};--rbg:${rc.bg}">
+            ${a.ico} <span>${esc(a.nm)}</span> <span class="gr-ach-xp">+${a.xp} XP</span>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+
+      <div style="display:flex;gap:.6rem;margin-top:1.5rem;flex-wrap:wrap">
+        <button class="btn-sec" id="btn-gr-share">📋 Teilen</button>
+        <button class="btn-sec" id="btn-gr-rematch">⚡ Nochmal</button>
+        <button class="btn-pri" style="flex:1" id="btn-gr-home">🏠 Dashboard</button>
+      </div>
+    </div>`;
+
+  document.getElementById('btn-gr-home').onclick = () => {
+    resetNG(); renderAll(); switchTab('dashboard');
+  };
+  document.getElementById('btn-gr-rematch').onclick = () => {
+    S.ng.pids = pids.filter(id => S.players[id]);
+    goNGStep(1);
+  };
+  document.getElementById('btn-gr-share').onclick = () => shareResult(scores);
+}
+
 async function saveGame(scores, roundData = null) {
   const pids   = Object.keys(scores);
   const sorted = [...pids].sort((a,b) => scores[b] - scores[a]);
@@ -291,11 +369,111 @@ async function saveGame(scores, roundData = null) {
 }
 
 /* ═══════════════════════════════════════════════
+   SCORE CHART
+═══════════════════════════════════════════════ */
+function drawScoreChart(canvasId, scores) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || scores.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w   = canvas.clientWidth || canvas.offsetWidth || 300;
+  const h   = 100;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad  = { t:12, r:12, b:18, l:34 };
+  const cw   = w - pad.l - pad.r;
+  const ch   = h - pad.t - pad.b;
+  const min  = Math.min(...scores);
+  const max  = Math.max(...scores);
+  const rng  = (max - min) || 1;
+  const toY  = v => pad.t + ch - ((v - min) / rng * ch);
+  const toX  = i => pad.l + (i / (scores.length - 1)) * cw;
+
+  // Grid
+  [0,.33,.66,1].forEach(f => {
+    const y = pad.t + ch * f;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    const val = Math.round(max - rng * f);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = `${9 * dpr}px JetBrains Mono, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(val, pad.l - 4, y + 3);
+  });
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+  grad.addColorStop(0, 'rgba(124,58,237,.35)');
+  grad.addColorStop(1, 'rgba(124,58,237,.0)');
+  ctx.beginPath();
+  scores.forEach((v, i) => { const x=toX(i),y=toY(v); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.lineTo(toX(scores.length - 1), h - pad.b);
+  ctx.lineTo(toX(0), h - pad.b);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  scores.forEach((v, i) => { const x=toX(i),y=toY(v); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke();
+
+  // Dots + tooltips
+  scores.forEach((v, i) => {
+    const x = toX(i), y = toY(v);
+    // Gold dot for best score
+    const isBest = v === max;
+    ctx.beginPath(); ctx.arc(x, y, isBest ? 5 : 3.5, 0, Math.PI*2);
+    ctx.fillStyle = isBest ? '#f59e0b' : '#a78bfa';
+    ctx.fill();
+    ctx.strokeStyle = '#08080f'; ctx.lineWidth = 2; ctx.stroke();
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   H2H CALCULATION
+═══════════════════════════════════════════════ */
+function calcH2H(pid) {
+  const result = {};
+  S.games.forEach(g => {
+    if (!(g.players||[]).includes(pid)) return;
+    (g.players||[]).forEach(opp => {
+      if (opp === pid) return;
+      if (!result[opp]) result[opp] = { w:0, l:0 };
+      if (g.winner === pid)  result[opp].w++;
+      else if (g.winner === opp) result[opp].l++;
+    });
+  });
+  return result;
+}
+
+/* ═══════════════════════════════════════════════
    RENDER DASHBOARD
 ═══════════════════════════════════════════════ */
 function renderDashboard() {
   const ps = Object.values(S.players);
   const gs = S.games;
+
+  // Season banner
+  const seasonEl = document.getElementById('dash-season');
+  if (seasonEl) {
+    if (gs.length >= 3) {
+      const topP = [...ps].sort((a,b) => (b.mmr||1000)-(a.mmr||1000))[0];
+      seasonEl.innerHTML = `
+        <div class="season-banner" id="sb-link">
+          <span class="sb-ico">⚡</span>
+          <div class="sb-info">
+            <h4>${gs.length} ${gs.length === 1 ? 'Spiel' : 'Spiele'} gespielt · Wizard Arena aktiv</h4>
+            <p>${topP ? `Leader: ${topP.emoji||'🧙'} ${esc(topP.name)} · ${topP.mmr||1000} MMR` : 'Sei der Erste!'}</p>
+          </div>
+          <span class="sb-arrow">›</span>
+        </div>`;
+      document.getElementById('sb-link')?.addEventListener('click', () => switchTab('rankings'));
+    } else {
+      seasonEl.innerHTML = '';
+    }
+  }
 
   // Hero stats
   const totalGames = gs.length;
@@ -339,20 +517,44 @@ function renderDashboard() {
     recEl.innerHTML = gs.slice(0,8).map(g => {
       const w  = S.players[g.winner];
       const dt = fmtDate(g.date);
-      const names = (g.players||[]).map(id => S.players[id]?.name || '?').join(', ');
-      const ws = g.scores?.[g.winner] ?? '?';
-      return `<div class="rg-row">
+      const allPIds = g.players||[];
+      const sorted  = [...allPIds].sort((a,b) => (g.scores?.[b]||0)-(g.scores?.[a]||0));
+      const names   = allPIds.map(id => S.players[id]?.name || '?').join(', ');
+      const ws      = g.scores?.[g.winner] ?? '?';
+      const miniStandings = sorted.slice(0,3).map((pid,i) => {
+        const p = S.players[pid]; const medal=['🥇','🥈','🥉'][i];
+        return `<span style="margin-right:.3rem;font-size:.75rem">${medal}${esc(p?.name||'?')} <b style="font-family:monospace">${g.scores?.[pid]||0}</b></span>`;
+      }).join('');
+      return `<div class="rg-row" data-gid="${g.id}" style="cursor:pointer">
         <span class="rg-ava">${w?.emoji || '🧙'}</span>
         <div class="rg-info">
           <div class="rg-winner">🏆 ${esc(w?.name || '?')}</div>
-          <div class="rg-players">${esc(names)}</div>
+          <div class="rg-players rg-standings">${miniStandings}</div>
+          <div class="rg-players" style="margin-top:.1rem;opacity:.6">${esc(names)} · ${allPIds.length} Spieler</div>
         </div>
         <div class="rg-right">
           <div class="rg-score">${ws} Pkt</div>
           <div class="rg-date">${dt}</div>
+          <button class="btn-rematch" data-gid="${g.id}" title="Dieselben Spieler nochmal">⚡ Nochmal</button>
         </div>
       </div>`;
     }).join('');
+
+    // Quick rematch handlers
+    recEl.querySelectorAll('.btn-rematch').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        quickRematch(btn.dataset.gid);
+      });
+    });
+
+    // Clickable rows → game detail
+    recEl.querySelectorAll('.rg-row[data-gid]').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('.btn-rematch')) return;
+        showGameDetail(row.dataset.gid);
+      });
+    });
   }
 
   // Global stats
@@ -418,16 +620,35 @@ function renderRankings() {
     const rc  = medals[i] || '';
     const rl  = i < 3 ? labels[i] : `#${i+1}`;
     const row = i < 3 ? ` r${i+1}` : '';
-    return `<div class="rank-row${row}" style="animation-delay:${i*40}ms">
+    const lv  = getLevelData(p.xp||0);
+    const wr  = winRate(p);
+    // Trend: compare MMR to what it would be with one fewer win (rough indicator)
+    const prevMMR = calcMMR({ ...p.stats, wins: Math.max(0,(p.stats?.wins||0)-1), gamesPlayed: Math.max(1,(p.stats?.gamesPlayed||0)-1) });
+    const trendUp = (p.mmr||1000) > prevMMR + 5;
+    const trendDn = (p.mmr||1000) < prevMMR - 5;
+    const trend   = trendUp ? '<span style="color:var(--gr);font-size:.7rem">▲</span>' : trendDn ? '<span style="color:var(--rd);font-size:.7rem">▼</span>' : '';
+    return `<div class="rank-row${row}" style="animation-delay:${i*40}ms" data-pid="${p.id}">
       <div class="rrank ${rc}">${rl}</div>
       <div class="rava">${p.emoji||'🧙'}</div>
       <div class="rinfo">
-        <div class="rname">${esc(p.name)}</div>
-        <div class="rsub">${subFn(p)}</div>
+        <div class="rname">${esc(p.name)} ${trend}</div>
+        <div class="rsub">${subFn(p)} · Lv.${p.level||1} ${lv.cur.title}</div>
       </div>
       <div class="rval">${valFn(p)}</div>
     </div>`;
   }).join('');
+
+  // Click row → open profile
+  el.querySelectorAll('.rank-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const pid = row.dataset.pid;
+      if (!pid) return;
+      S.profId = pid;
+      document.getElementById('prof-sel').value = pid;
+      switchTab('profile');
+      renderProfile(pid);
+    });
+  });
 }
 
 /* ═══════════════════════════════════════════════
@@ -477,6 +698,7 @@ function renderProfile(pid) {
 
   el.innerHTML = `
     <div class="prof-banner" style="background:${bannerBg}">
+      <button class="prof-edit-btn" data-pid="${pid}">✏️ Bearbeiten</button>
       <div class="prof-ava">${p.emoji||'🧙'}</div>
       <div class="prof-name">${esc(p.name)}</div>
       <div class="prof-title">${p.title||'Novize'}</div>
@@ -516,21 +738,77 @@ function renderProfile(pid) {
       ${lockedACH.map(a => `<div class="ach-badge-sm lk">${a.ico} ${esc(a.nm)}</div>`).join('')}
     </div>
 
+    ${recentGames.length >= 2 ? `
+    <div class="prof-sub-title">📈 Score-Verlauf (letzte ${recentGames.length} Spiele)</div>
+    <div class="chart-wrap">
+      <canvas id="score-chart" class="mini-chart" style="width:100%;height:100px;display:block"></canvas>
+    </div>` : ''}
+
+    <div class="prof-sub-title">⚔️ Head-to-Head</div>
+    <div class="h2h-grid" id="h2h-grid">
+      ${Object.entries(calcH2H(pid)).sort((a,b)=>(b[1].w+b[1].l)-(a[1].w+a[1].l)).slice(0,6).map(([opp, rec]) => {
+        const op = S.players[opp];
+        if (!op) return '';
+        const total = rec.w + rec.l;
+        const wpct  = total ? Math.round(rec.w/total*100) : 0;
+        return `<div class="h2h-row">
+          <span class="h2h-ava">${op.emoji||'🧙'}</span>
+          <div class="h2h-name">${esc(op.name)}</div>
+          <div class="h2h-rec">
+            <span class="h2h-w">${rec.w}W</span>
+            <span style="color:var(--tx3);margin:0 .25rem">·</span>
+            <span class="h2h-l">${rec.l}L</span>
+          </div>
+          <div class="h2h-bar-wrap">
+            <div class="h2h-bar-fill" style="width:${wpct}%"></div>
+          </div>
+          <div class="h2h-pct">${wpct}%</div>
+        </div>`;
+      }).join('') || '<div style="color:var(--tx3);font-size:.8rem;padding:.5rem">Noch keine Duelle</div>'}
+    </div>
+
     <div class="prof-sub-title">📜 Letzte Spiele</div>
     ${recentGames.length ? recentGames.map(g => {
       const pos = (g.rankings||[]).indexOf(pid) + 1 || '?';
       const posEmoji = pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':'🏅';
       const otherNames = (g.players||[]).filter(id=>id!==pid).map(id=>S.players[id]?.name||'?').join(', ');
-      return `<div class="hist-row">
+      const myScore = g.scores?.[pid]||0;
+      const isWin = g.winner === pid;
+      return `<div class="hist-row${isWin?' hist-win':''}" data-gid="${g.id}" style="cursor:pointer">
         <span class="hist-pos">${posEmoji}</span>
         <div class="hist-info">
           <div class="hist-date">${fmtDate(g.date)}</div>
-          <div class="hist-players">${esc(otherNames) || 'Keine weiteren'}</div>
+          <div class="hist-players">${esc(otherNames) || 'Solo'}</div>
         </div>
-        <div class="hist-score">${g.scores?.[pid]||0} Pkt</div>
+        <div class="hist-score">${myScore} Pkt</div>
+        <button class="btn-rematch" data-gid="${g.id}" title="Nochmal spielen" style="margin-left:.5rem">⚡</button>
       </div>`;
     }).join('') : '<div class="empty" style="padding:1.5rem"><p>Noch keine Spiele</p></div>'}
   `;
+
+  // Draw chart after DOM insertion
+  if (recentGames.length >= 2) {
+    const chartScores = [...recentGames].reverse().map(g => g.scores?.[pid] || 0);
+    requestAnimationFrame(() => drawScoreChart('score-chart', chartScores));
+  }
+
+  // Quick rematch handlers
+  document.querySelectorAll('#prof-content .btn-rematch').forEach(btn => {
+    btn.addEventListener('click', () => quickRematch(btn.dataset.gid));
+  });
+
+  // Edit profile button
+  document.querySelector('#prof-content .prof-edit-btn')?.addEventListener('click', e => {
+    openEditPlayer(e.currentTarget.dataset.pid);
+  });
+
+  // Clickable history rows → game detail
+  document.querySelectorAll('#prof-content .hist-row[data-gid]').forEach(row => {
+    row.addEventListener('click', e => {
+      if (e.target.closest('.btn-rematch')) return;
+      showGameDetail(row.dataset.gid);
+    });
+  });
 
   // Animate XP bar
   setTimeout(() => {
@@ -660,23 +938,26 @@ function renderNG2() {
 
   } else if (mode === 'photo') {
     el.innerHTML = `
-      <h2 class="step-h">Punktezettel fotografieren</h2>
-      <div class="photo-zone" id="photo-zone">
-        <span class="photo-ico">📷</span>
-        <p>Tippe hier oder lade ein Bild hoch</p>
-        <input type="file" id="photo-inp" accept="image/*" capture="camera" style="display:none">
-        <button class="btn-sec" id="btn-photo-pick">📷 Foto wählen / aufnehmen</button>
+      <h2 class="step-h">Punktezettel scannen</h2>
+      <p style="color:var(--tx2);font-size:.83rem;text-align:center;margin-bottom:1rem">
+        Fotografiere den Spielzettel — die KI erkennt die Punkte automatisch
+      </p>
+      <div class="photo-btns">
+        <input type="file" id="photo-inp-cam" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="photo-inp-gal" accept="image/*" style="display:none">
+        <button class="btn-pri" id="btn-photo-cam"><span style="font-size:1.1rem">📷</span> Kamera</button>
+        <button class="btn-sec" id="btn-photo-gal"><span style="font-size:1.1rem">🖼</span> Galerie</button>
       </div>
-      <div id="ocr-area"></div>
+      <div id="photo-state-area"></div>
       <div class="step-acts" style="margin-top:.75rem">
         <button class="btn-ghost" id="btn-ng2-back">← Zurück</button>
       </div>`;
 
     document.getElementById('btn-ng2-back').onclick = () => goNGStep(1);
-    const photoInp = document.getElementById('photo-inp');
-    document.getElementById('btn-photo-pick').onclick = () => photoInp.click();
-    document.getElementById('photo-zone').onclick = () => photoInp.click();
-    photoInp.onchange = e => handlePhoto(e.target.files[0]);
+    document.getElementById('btn-photo-cam').onclick = () => document.getElementById('photo-inp-cam').click();
+    document.getElementById('btn-photo-gal').onclick = () => document.getElementById('photo-inp-gal').click();
+    document.getElementById('photo-inp-cam').onchange = e => { if (e.target.files[0]) handlePhoto(e.target.files[0]); };
+    document.getElementById('photo-inp-gal').onchange  = e => { if (e.target.files[0]) handlePhoto(e.target.files[0]); };
   }
 }
 
@@ -709,11 +990,15 @@ async function submitScores() {
   try {
     const { winner, newlyUnlocked } = await saveGame(scores);
     showConfetti();
-    toast(`🏆 ${esc(S.players[winner]?.name)} gewinnt!`, 'ok');
-    resetNG();
     renderAll();
-    switchTab('dashboard');
-    if (newlyUnlocked.length) setTimeout(() => processAchQueue(newlyUnlocked), 800);
+    // Show result screen in-place
+    document.getElementById('gs-players').classList.remove('active');
+    document.getElementById('gs-mode').classList.remove('active');
+    const gsInput = document.getElementById('gs-input');
+    gsInput.classList.add('active');
+    showGameResult(scores, newlyUnlocked);
+    toast(`🏆 ${esc(S.players[winner]?.name)} gewinnt!`, 'ok');
+    if (newlyUnlocked.length) setTimeout(() => processAchQueue(newlyUnlocked), 1200);
   } catch(e) {
     toast('Fehler beim Speichern!','err');
     console.error(e);
@@ -736,11 +1021,14 @@ async function submitRounds() {
   try {
     const { winner, newlyUnlocked } = await saveGame(scores, S.ng.roundData);
     showConfetti();
-    toast(`🏆 ${esc(S.players[winner]?.name)} gewinnt!`, 'ok');
-    resetNG();
     renderAll();
-    switchTab('dashboard');
-    if (newlyUnlocked.length) setTimeout(() => processAchQueue(newlyUnlocked), 800);
+    document.getElementById('gs-players').classList.remove('active');
+    document.getElementById('gs-mode').classList.remove('active');
+    const gsInput = document.getElementById('gs-input');
+    gsInput.classList.add('active');
+    showGameResult(scores, newlyUnlocked);
+    toast(`🏆 ${esc(S.players[winner]?.name)} gewinnt!`, 'ok');
+    if (newlyUnlocked.length) setTimeout(() => processAchQueue(newlyUnlocked), 1200);
   } catch(e) {
     toast('Fehler beim Speichern!','err');
     console.error(e);
@@ -750,49 +1038,56 @@ async function submitRounds() {
 
 async function handlePhoto(file) {
   if (!file) return;
-  const areaEl = document.getElementById('ocr-area');
+  const areaEl = document.getElementById('photo-state-area');
   const url = URL.createObjectURL(file);
 
   areaEl.innerHTML = `
-    <div class="ocr-preview"><img src="${url}" alt="Zettel"></div>
-    <div class="ocr-prog" id="ocr-prog">
-      <div>🔍 Analysiere Bild…</div>
-      <div class="ocr-pbar-wrap"><div class="ocr-pbar-fill" id="ocr-pbar" style="width:0%"></div></div>
+    <div class="photo-state-wrap">
+      <img class="photo-preview-img" src="${url}" alt="Zettel">
+      <div class="ocr-status-bar" id="ocr-sb">
+        <span class="ocr-sb-ico">🔍</span>
+        <div class="ocr-sb-info">
+          <div class="ocr-sb-msg" id="ocr-sb-msg">Analysiere Bild…</div>
+          <div class="ocr-sb-bar"><div class="ocr-sb-fill" id="ocr-sb-fill"></div></div>
+        </div>
+      </div>
     </div>`;
 
-  try {
-    // Dynamic load Tesseract
-    const { createWorker } = await import('https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.esm.min.js');
-    const worker = await createWorker('deu+eng', 1, {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          const pbar = document.getElementById('ocr-pbar');
-          if (pbar) pbar.style.width = Math.round(m.progress*100)+'%';
+  if (window.Tesseract) {
+    try {
+      const result = await window.Tesseract.recognize(file, 'deu+eng', {
+        logger: m => {
+          const fill = document.getElementById('ocr-sb-fill');
+          const msg  = document.getElementById('ocr-sb-msg');
+          if (!fill || !msg) return;
+          if (m.status === 'recognizing text') {
+            const pct = Math.round(m.progress * 100);
+            fill.style.width = pct + '%';
+            msg.textContent = `Texterkennung… ${pct}%`;
+          } else if (m.status === 'loading tesseract core') {
+            msg.textContent = 'Tesseract lädt…';
+          } else if (m.status === 'initializing tesseract') {
+            msg.textContent = 'Initialisierung…';
+          } else if (m.status === 'loading language traineddata') {
+            msg.textContent = 'Sprachpaket lädt…';
+          } else if (m.status === 'initialized tesseract') {
+            fill.style.width = '20%';
+            msg.textContent = 'Bereit – starte Erkennung…';
+          }
         }
-      }
-    });
-    const { data: { text } } = await worker.recognize(file);
-    await worker.terminate();
-
-    const parsed = parseOCRText(text);
-    renderOCRResult(parsed, areaEl);
-  } catch(e) {
-    areaEl.innerHTML = `
-      <p style="color:var(--tx2);text-align:center;padding:1rem">OCR nicht verfügbar – bitte Punkte manuell eingeben:</p>
-      <div class="scr-form">
-        ${S.ng.pids.map(pid => {
-          const p = S.players[pid];
-          return `<div class="scr-row">
-            <div class="scr-ava">${p.emoji||'🧙'}</div>
-            <div class="scr-name">${esc(p.name)}</div>
-            <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0">
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="step-acts" style="margin-top:1rem">
-        <button class="btn-pri full" id="btn-save-ocr-manual">💾 Spiel speichern</button>
-      </div>`;
-    document.getElementById('btn-save-ocr-manual')?.addEventListener('click', submitScores);
+      });
+      document.getElementById('ocr-sb')?.remove();
+      renderOCRResult(parseOCRText(result.data.text), areaEl, true);
+    } catch(e) {
+      console.warn('OCR error:', e);
+      const sb = document.getElementById('ocr-sb');
+      if (sb) sb.innerHTML = `<span class="ocr-sb-ico">⚠️</span><div class="ocr-sb-info"><div class="ocr-sb-msg">OCR fehlgeschlagen – manuell eingeben</div></div>`;
+      renderOCRResult({}, areaEl, false);
+    }
+  } else {
+    const sb = document.getElementById('ocr-sb');
+    if (sb) sb.innerHTML = `<span class="ocr-sb-ico">📝</span><div class="ocr-sb-info"><div class="ocr-sb-msg">Punkte manuell eingeben</div></div>`;
+    renderOCRResult({}, areaEl, false);
   }
 }
 
@@ -811,22 +1106,30 @@ function parseOCRText(text) {
   return result;
 }
 
-function renderOCRResult(parsed, el) {
-  el.innerHTML = `
-    <p style="color:var(--gr);font-size:.85rem;margin-bottom:.75rem;text-align:center">✅ OCR abgeschlossen – bitte Ergebnisse prüfen:</p>
+function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
+  const detected = Object.keys(parsed).length;
+  const statusMsg = ocrSuccess
+    ? `<p style="color:var(--gr);font-size:.82rem;margin:.75rem 0;text-align:center">✅ OCR fertig – ${detected}/${S.ng.pids.length} Spieler erkannt. Bitte prüfen &amp; korrigieren:</p>`
+    : `<p style="color:var(--tx2);font-size:.82rem;margin:.75rem 0;text-align:center">📝 Punkte manuell eingeben:</p>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = `
+    ${statusMsg}
     <div class="scr-form">
       ${S.ng.pids.map(pid => {
         const p = S.players[pid];
-        return `<div class="scr-row">
+        const found = parsed[pid] != null;
+        return `<div class="scr-row" style="${found ? 'border-color:rgba(16,185,129,.35)' : ''}">
           <div class="scr-ava">${p.emoji||'🧙'}</div>
-          <div class="scr-name">${esc(p.name)}</div>
-          <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0" value="${parsed[pid]??''}">
+          <div class="scr-name">${esc(p.name)}${found ? '<span style="font-size:.62rem;color:var(--gr);margin-left:.4rem">✓ erkannt</span>' : ''}</div>
+          <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0" value="${parsed[pid] ?? ''}">
         </div>`;
       }).join('')}
     </div>
     <div class="step-acts" style="margin-top:1rem">
       <button class="btn-pri full" id="btn-save-ocr">💾 Spiel speichern</button>
     </div>`;
+  areaEl.appendChild(div);
   document.getElementById('btn-save-ocr')?.addEventListener('click', submitScores);
 }
 
@@ -1052,6 +1355,119 @@ function animateCounters() {
 /* ═══════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   CLIPBOARD SHARE
+═══════════════════════════════════════════════ */
+function shareResult(scores) {
+  const sorted = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+  const medals = ['🥇','🥈','🥉','🏅'];
+  const lines  = ['🧙 Wizard Arena Ergebnis', ''];
+  sorted.forEach(([pid,sc],i) => {
+    lines.push(`${medals[i]||'🏅'} ${S.players[pid]?.name||'?'}: ${sc} Pkt`);
+  });
+  lines.push('', '🎮 wizard.html');
+  const text = lines.join('\n');
+  navigator.clipboard?.writeText(text).then(() => toast('Ergebnis kopiert! 📋', 'ok')).catch(() => toast('Kopieren fehlgeschlagen','err'));
+}
+
+/* ═══════════════════════════════════════════════
+   GAME DETAIL + DELETE
+═══════════════════════════════════════════════ */
+function showGameDetail(gameId) {
+  const g = S.games.find(x => x.id === gameId);
+  if (!g) return;
+  const allPids = g.rankings || g.players || [];
+  const sorted  = [...allPids].sort((a,b) => (g.scores?.[b]||0)-(g.scores?.[a]||0));
+  const winner  = S.players[g.winner];
+  const medals  = ['🥇','🥈','🥉','🏅','🏅','🏅'];
+  const topScore = g.scores?.[sorted[0]] || 0;
+
+  document.getElementById('game-detail-content').innerHTML = `
+    <div class="gd-summary">
+      <span class="gd-win-ava">${winner?.emoji||'🧙'}</span>
+      <div class="gd-win-info">
+        <h4>🏆 ${esc(winner?.name||'?')} gewinnt!</h4>
+        <p>${fmtDate(g.date)} · ${sorted.length} Spieler</p>
+      </div>
+    </div>
+    <div class="gd-standings">
+      ${sorted.map((pid,i) => {
+        const p  = S.players[pid];
+        const sc = g.scores?.[pid] || 0;
+        const diff = i > 0 ? `<span class="gd-diff">-${topScore - sc}</span>` : '';
+        return `<div class="gd-row ${i===0?'gd-win':''}">
+          <span class="gd-medal">${medals[i]||'🏅'}</span>
+          <span class="gd-ava-sm">${p?.emoji||'🧙'}</span>
+          <span class="gd-name">${esc(p?.name||'?')}</span>
+          <span class="gd-sc">${sc} Pkt${diff}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  document.getElementById('btn-detail-delete').onclick  = () => deleteGame(gameId);
+  document.getElementById('btn-detail-rematch').onclick = () => {
+    hideModal('modal-game-detail');
+    quickRematch(gameId);
+  };
+  showModal('modal-game-detail');
+}
+
+async function deleteGame(gameId) {
+  if (!confirm('Spiel wirklich löschen? Spielerstatistiken werden neu berechnet.')) return;
+  const game = S.games.find(g => g.id === gameId);
+  if (!game) return;
+  try {
+    await deleteDoc(doc(db, 'wizard_games', gameId));
+    S.games = S.games.filter(g => g.id !== gameId);
+    for (const pid of (game.players || [])) await recalcPlayerStats(pid);
+    hideModal('modal-game-detail');
+    renderAll();
+    toast('Spiel gelöscht ✓', 'ok');
+  } catch(e) {
+    toast('Fehler beim Löschen!', 'err');
+    console.error(e);
+  }
+}
+
+async function recalcPlayerStats(pid) {
+  const games = S.games.filter(g => (g.players||[]).includes(pid));
+  const chron = [...games].sort((a,b) => {
+    const da  = a.date?.toDate ? a.date.toDate() : new Date(a.date||0);
+    const db2 = b.date?.toDate ? b.date.toDate() : new Date(b.date||0);
+    return da - db2;
+  });
+  let gp=0, wins=0, tot=0, high=0, streak=0, maxStr=0;
+  chron.forEach(g => {
+    gp++;
+    const sc = g.scores?.[pid] || 0;
+    tot += sc;
+    high = Math.max(high, sc);
+    if (g.winner === pid) { wins++; streak++; maxStr = Math.max(maxStr, streak); }
+    else streak = 0;
+  });
+  const avgPts = gp ? Math.round(tot/gp) : 0;
+  const newStats = { gamesPlayed:gp, wins, totalPoints:tot, avgPoints:avgPts, highScore:high, winStreak:streak, maxWinStreak:maxStr };
+  await persistPlayer(pid, { stats: newStats, mmr: calcMMR(newStats) });
+}
+
+/* ═══════════════════════════════════════════════
+   EDIT PLAYER
+═══════════════════════════════════════════════ */
+function openEditPlayer(pid) {
+  const p = S.players[pid];
+  if (!p) return;
+  document.getElementById('edit-player-id').value = pid;
+  document.getElementById('inp-edit-pname').value = p.name || '';
+  document.getElementById('edit-cur-ava').textContent = p.emoji || '🧙';
+  document.getElementById('edit-player-name-display').textContent = p.name || '–';
+
+  const grid = document.getElementById('ava-grid-edit');
+  grid.innerHTML = AVATARS.map(a =>
+    `<div class="ava-opt${a === (p.emoji||'🧙') ? ' sel' : ''}" data-emo="${a}">${a}</div>`
+  ).join('');
+  showModal('modal-edit-player');
+}
+
 function esc(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function winRate(p) { const g=p.stats?.gamesPlayed||0; return g ? Math.round((p.stats.wins||0)/g*100) : 0; }
 function fmtDate(ts) {
@@ -1189,6 +1605,40 @@ function initEvents() {
   document.getElementById('inp-pname').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-confirm-player').click();
   });
+
+  // Edit player: avatar grid (delegated, registered once)
+  document.getElementById('ava-grid-edit')?.addEventListener('click', e => {
+    const opt = e.target.closest('.ava-opt'); if (!opt) return;
+    document.querySelectorAll('#ava-grid-edit .ava-opt').forEach(o => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    document.getElementById('edit-cur-ava').textContent = opt.dataset.emo;
+  });
+
+  // Edit player: confirm save
+  document.getElementById('btn-confirm-edit')?.addEventListener('click', async () => {
+    const pid    = document.getElementById('edit-player-id').value;
+    const name   = document.getElementById('inp-edit-pname').value.trim();
+    const selOpt = document.querySelector('#ava-grid-edit .ava-opt.sel');
+    const emoji  = selOpt?.dataset.emo || S.players[pid]?.emoji || '🧙';
+    if (!name) { document.getElementById('inp-edit-pname').style.borderColor='var(--rd)'; return; }
+    document.getElementById('inp-edit-pname').style.borderColor = '';
+    const btn = document.getElementById('btn-confirm-edit');
+    btn.disabled = true; btn.textContent = '⏳ Speichere…';
+    try {
+      await persistPlayer(pid, { name, emoji });
+      hideModal('modal-edit-player');
+      renderAll();
+      if (S.profId === pid) renderProfile(pid);
+      toast(`✏️ ${esc(name)} aktualisiert!`, 'ok');
+    } catch(e) {
+      toast('Fehler!', 'err'); console.error(e);
+    }
+    btn.disabled = false; btn.textContent = '✏️ Speichern';
+  });
+
+  document.getElementById('inp-edit-pname')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-confirm-edit')?.click();
+  });
 }
 
 /* ═══════════════════════════════════════════════
@@ -1197,6 +1647,12 @@ function initEvents() {
 async function init() {
   initParticles();
 
+  // Authenticate before any Firestore access
+  try {
+    document.getElementById('spl-msg').textContent = 'Verbinde mit Datenbank…';
+    await signInAnonymously(auth);
+  } catch(e) { console.warn('Auth:', e); }
+
   try {
     document.getElementById('spl-msg').textContent = 'Spieler werden geladen…';
     await loadPlayers();
@@ -1204,6 +1660,7 @@ async function init() {
     await loadGames();
   } catch(e) {
     console.error('Firebase Ladefehler:', e);
+    toast('Verbindungsfehler – bitte Seite neu laden', 'err');
   }
 
   renderAll();
