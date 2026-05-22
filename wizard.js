@@ -2,7 +2,7 @@
 
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { initializeAuth, inMemoryPersistence, signInAnonymously }
+import { getAuth, signInAnonymously, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs,
@@ -22,9 +22,7 @@ const FB = {
   appId:             '1:199496624018:web:a06afb19294d0635a8034b',
 };
 const app  = initializeApp(FB);
-// initializeAuth with inMemoryPersistence ensures Firebase never touches IndexedDB,
-// which is blocked by browser tracking prevention when running from file://
-const auth = initializeAuth(app, { persistence: inMemoryPersistence });
+const auth = getAuth(app);
 const db   = getFirestore(app);
 
 /* ═══════════════════════════════════════════════
@@ -1697,15 +1695,20 @@ function initEvents() {
 async function init() {
   initParticles();
 
-  // Authenticate before any Firestore access
-  try {
-    document.getElementById('spl-msg').textContent = 'Verbinde mit Datenbank…';
-    await signInAnonymously(auth);
-  } catch(e) {
-    console.warn('Auth warning:', e);
-    toast('Authentifizierung fehlgeschlagen – bitte Seite neu laden', 'err');
-    return;
-  }
+  // Sign in, then wait for onAuthStateChanged to confirm the token is
+  // fully propagated to the Firestore SDK before making any reads/writes.
+  document.getElementById('spl-msg').textContent = 'Verbinde mit Datenbank…';
+  try { await signInAnonymously(auth); } catch(e) { console.warn('Auth:', e); }
+
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Auth timeout')), 10000);
+    const unsub = onAuthStateChanged(auth, user => {
+      if (user) { clearTimeout(timer); unsub(); resolve(); }
+    }, err => { clearTimeout(timer); reject(err); });
+  }).catch(e => {
+    toast('Verbindung fehlgeschlagen – bitte Seite neu laden', 'err');
+    console.error('Auth state error:', e);
+  });
 
   try {
     document.getElementById('spl-msg').textContent = 'Spieler werden geladen…';
@@ -1714,7 +1717,7 @@ async function init() {
     await loadGames();
   } catch(e) {
     console.error('Firebase Ladefehler:', e);
-    toast('Verbindungsfehler – bitte Seite neu laden', 'err');
+    toast('Laden fehlgeschlagen – bitte Seite neu laden', 'err');
   }
 
   renderAll();
