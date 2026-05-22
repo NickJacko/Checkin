@@ -2,7 +2,7 @@
 
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getAuth, signInAnonymously }
+import { initializeAuth, inMemoryPersistence, signInAnonymously }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDoc, getDocs,
@@ -22,7 +22,9 @@ const FB = {
   appId:             '1:199496624018:web:a06afb19294d0635a8034b',
 };
 const app  = initializeApp(FB);
-const auth = getAuth(app);
+// initializeAuth with inMemoryPersistence ensures Firebase never touches IndexedDB,
+// which is blocked by browser tracking prevention when running from file://
+const auth = initializeAuth(app, { persistence: inMemoryPersistence });
 const db   = getFirestore(app);
 
 /* ═══════════════════════════════════════════════
@@ -1053,9 +1055,12 @@ async function handlePhoto(file) {
       </div>
     </div>`;
 
-  if (window.Tesseract) {
+  // Lazy-load Tesseract only when needed (avoids storage-blocked warnings on page load)
+  const Tesseract = await loadTesseract();
+
+  if (Tesseract) {
     try {
-      const result = await window.Tesseract.recognize(file, 'deu+eng', {
+      const result = await Tesseract.recognize(file, 'deu+eng', {
         logger: m => {
           const fill = document.getElementById('ocr-sb-fill');
           const msg  = document.getElementById('ocr-sb-msg');
@@ -1091,25 +1096,64 @@ async function handlePhoto(file) {
   }
 }
 
+let _tesseract = null;
+async function loadTesseract() {
+  if (_tesseract) return _tesseract;
+  return new Promise(resolve => {
+    if (window.Tesseract) { _tesseract = window.Tesseract; resolve(_tesseract); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js';
+    s.onload  = () => { _tesseract = window.Tesseract; resolve(_tesseract); };
+    s.onerror = () => resolve(null);
+    document.head.appendChild(s);
+  });
+}
+
 function parseOCRText(text) {
-  const result = {};
-  const lines = text.split('\n').filter(l => l.trim().length > 2);
-  S.ng.pids.forEach(pid => {
-    const p = S.players[pid];
-    const pname = (p.name||'').toLowerCase();
-    const match = lines.find(l => l.toLowerCase().includes(pname) || pname.split(' ').some(w => w.length>2 && l.toLowerCase().includes(w)));
+  const scores      = {};
+  const detectedPids = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
+  // Scan ALL registered players — not just pre-selected ones
+  Object.entries(S.players).forEach(([pid, p]) => {
+    const pname = (p.name||'').toLowerCase().trim();
+    if (!pname) return;
+    const match = lines.find(l => {
+      const lc = l.toLowerCase();
+      // Full name match OR any word longer than 2 chars
+      return lc.includes(pname) || pname.split(/\s+/).some(w => w.length > 2 && lc.includes(w));
+    });
     if (match) {
       const nums = match.match(/-?\d+/g);
-      if (nums) result[pid] = parseInt(nums[nums.length-1]);
+      if (nums) {
+        scores[pid] = parseInt(nums[nums.length - 1]);
+        detectedPids.push(pid);
+      }
     }
   });
-  return result;
+  return { scores, detectedPids };
 }
 
 function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
-  const detected = Object.keys(parsed).length;
+  // Support both old plain-object format and new {scores, detectedPids} format
+  const scores       = (parsed && 'scores' in parsed) ? parsed.scores : parsed;
+  const detectedPids = (parsed && 'detectedPids' in parsed) ? parsed.detectedPids : [];
+
+  // Auto-add newly detected players that weren't pre-selected
+  const added = [];
+  detectedPids.forEach(pid => {
+    if (!S.ng.pids.includes(pid)) { S.ng.pids.push(pid); added.push(pid); }
+  });
+
+  // If still no players at all, fall back to all registered players for manual entry
+  if (!S.ng.pids.length) S.ng.pids = Object.keys(S.players);
+
+  const detectedCount = S.ng.pids.filter(pid => scores[pid] != null).length;
+  const autoAddedNote = added.length
+    ? `<p style="color:var(--cy);font-size:.76rem;margin-bottom:.4rem;text-align:center">✨ ${added.map(p => S.players[p]?.name).filter(Boolean).join(', ')} automatisch hinzugefügt</p>`
+    : '';
   const statusMsg = ocrSuccess
-    ? `<p style="color:var(--gr);font-size:.82rem;margin:.75rem 0;text-align:center">✅ OCR fertig – ${detected}/${S.ng.pids.length} Spieler erkannt. Bitte prüfen &amp; korrigieren:</p>`
+    ? `${autoAddedNote}<p style="color:var(--gr);font-size:.82rem;margin:.5rem 0;text-align:center">✅ OCR fertig – ${detectedCount}/${S.ng.pids.length} Spieler erkannt. Bitte prüfen:</p>`
     : `<p style="color:var(--tx2);font-size:.82rem;margin:.75rem 0;text-align:center">📝 Punkte manuell eingeben:</p>`;
 
   const div = document.createElement('div');
@@ -1118,11 +1162,11 @@ function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
     <div class="scr-form">
       ${S.ng.pids.map(pid => {
         const p = S.players[pid];
-        const found = parsed[pid] != null;
+        const found = scores[pid] != null;
         return `<div class="scr-row" style="${found ? 'border-color:rgba(16,185,129,.35)' : ''}">
-          <div class="scr-ava">${p.emoji||'🧙'}</div>
-          <div class="scr-name">${esc(p.name)}${found ? '<span style="font-size:.62rem;color:var(--gr);margin-left:.4rem">✓ erkannt</span>' : ''}</div>
-          <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0" value="${parsed[pid] ?? ''}">
+          <div class="scr-ava">${p?.emoji||'🧙'}</div>
+          <div class="scr-name">${esc(p?.name||'?')}${found ? '<span style="font-size:.62rem;color:var(--gr);margin-left:.4rem">✓ erkannt</span>' : ''}</div>
+          <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0" value="${scores[pid] ?? ''}">
         </div>`;
       }).join('')}
     </div>
@@ -1579,6 +1623,12 @@ function initEvents() {
     setTimeout(() => { achShowing = false; showNextAch(); }, 200);
   });
 
+  // Direct photo shortcut (skip player selection)
+  document.getElementById('btn-photo-direct')?.addEventListener('click', () => {
+    S.ng.mode = 'photo';
+    goNGStep(2);
+  });
+
   // New game step 1 → 2
   document.getElementById('btn-gs1').addEventListener('click', () => {
     if (S.ng.pids.length < 2) { toast('Bitte mind. 2 Spieler wählen!','err'); return; }
@@ -1651,7 +1701,11 @@ async function init() {
   try {
     document.getElementById('spl-msg').textContent = 'Verbinde mit Datenbank…';
     await signInAnonymously(auth);
-  } catch(e) { console.warn('Auth:', e); }
+  } catch(e) {
+    console.warn('Auth warning:', e);
+    toast('Authentifizierung fehlgeschlagen – bitte Seite neu laden', 'err');
+    return;
+  }
 
   try {
     document.getElementById('spl-msg').textContent = 'Spieler werden geladen…';

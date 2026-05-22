@@ -777,8 +777,12 @@ canvas.mini-chart{display:block;width:100%;height:100px}
         <!-- Step 1: Players -->
         <div class="gstep active" id="gs-players">
           <h2 class="step-h">Wer hat mitgespielt?</h2>
+          <p style="color:var(--tx2);font-size:.78rem;text-align:center;margin-bottom:1rem;margin-top:-.5rem">Oder überspringe die Auswahl — beim Foto-Scan werden Spieler automatisch erkannt</p>
           <div id="pchk-grid" class="pchk-grid"></div>
-          <div class="step-acts"><button class="btn-pri" id="btn-gs1">Weiter →</button></div>
+          <div class="step-acts">
+            <button class="btn-ghost" id="btn-photo-direct" title="Spieler werden per Foto automatisch erkannt">📷 Per Foto</button>
+            <button class="btn-pri" id="btn-gs1">Weiter →</button>
+          </div>
         </div>
 
         <!-- Step 2: Mode -->
@@ -798,7 +802,7 @@ canvas.mini-chart{display:block;width:100%;height:100px}
             <button class="mode-card" data-mode="photo">
               <span class="mode-ico">📷</span>
               <div class="mode-nm">Foto-Scan</div>
-              <div class="mode-ds">Zettel fotografieren (Beta)</div>
+              <div class="mode-ds">Spieler &amp; Punkte automatisch erkennen</div>
             </button>
           </div>
         </div>
@@ -903,7 +907,6 @@ canvas.mini-chart{display:block;width:100%;height:100px}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script type="module" src="wizard.js"></script>
 </body>
 </html>
