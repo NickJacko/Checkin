@@ -1036,6 +1036,157 @@ async function submitRounds() {
   }
 }
 
+// ── Image preprocessing: adaptive local contrast + GPU unsharp mask ──
+async function preprocessForOCR(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const rawUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(rawUrl);
+
+      // Scale to at least 2400px on the long edge (better DPI for Tesseract)
+      const longEdge = Math.max(img.width, img.height);
+      const scale = longEdge < 2400 ? 2400 / longEdge : 1;
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+
+      // ── A: Grayscale ──
+      const gray = new Float32Array(w * h);
+      for (let i = 0; i < d.length; i += 4)
+        gray[i >> 2] = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+
+      // ── B: Local mean via downsampled grid (DS=16, fast) ──
+      const DS = 16;
+      const dw = Math.ceil(w / DS), dh = Math.ceil(h / DS);
+      const dsM = new Float32Array(dw * dh);
+      for (let y = 0; y < dh; y++) {
+        for (let x = 0; x < dw; x++) {
+          let s = 0, c = 0;
+          for (let dy = 0; dy < DS; dy++) {
+            for (let dx = 0; dx < DS; dx++) {
+              const py = y*DS+dy, px = x*DS+dx;
+              if (py < h && px < w) { s += gray[py*w+px]; c++; }
+            }
+          }
+          dsM[y*dw+x] = c ? s/c : 128;
+        }
+      }
+      // Smooth the grid (7×7 box blur) to avoid block edges
+      const smM = new Float32Array(dw * dh);
+      for (let y = 0; y < dh; y++) {
+        for (let x = 0; x < dw; x++) {
+          let s = 0, c = 0;
+          for (let dy = -3; dy <= 3; dy++) {
+            for (let dx = -3; dx <= 3; dx++) {
+              const ny = y+dy, nx = x+dx;
+              if (ny >= 0 && ny < dh && nx >= 0 && nx < dw) { s += dsM[ny*dw+nx]; c++; }
+            }
+          }
+          smM[y*dw+x] = c ? s/c : 128;
+        }
+      }
+
+      // ── C: Adaptive contrast per pixel (bilinear interpolation of mean) ──
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const fx = Math.min(x/DS, dw-1.001), fy = Math.min(y/DS, dh-1.001);
+          const ix = Math.floor(fx), iy = Math.floor(fy);
+          const tx = fx-ix, ty = fy-iy;
+          const mean = smM[iy*dw+ix]       * (1-tx)*(1-ty)
+                     + smM[iy*dw+ix+1]     * tx*(1-ty)
+                     + smM[(iy+1)*dw+ix]   * (1-tx)*ty
+                     + smM[(iy+1)*dw+ix+1] * tx*ty;
+          const v = Math.max(0, Math.min(255, Math.round(128 + (gray[y*w+x] - mean) * 2.5)));
+          const i = (y*w+x)*4;
+          d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      // ── D: Unsharp mask using GPU blur (fast, no extra JS loop) ──
+      const blurC = document.createElement('canvas');
+      blurC.width = w; blurC.height = h;
+      const blurCtx = blurC.getContext('2d');
+      blurCtx.filter = 'blur(1.5px)';
+      blurCtx.drawImage(canvas, 0, 0);
+      const bd = blurCtx.getImageData(0, 0, w, h).data;
+      for (let i = 0; i < d.length; i += 4) {
+        const v = Math.max(0, Math.min(255, Math.round(d[i] + 1.5 * (d[i] - bd[i]))));
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      canvas.toBlob(blob => resolve(blob), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(rawUrl); resolve(file); };
+    img.src = rawUrl;
+  });
+}
+
+// ── Merge two OCR passes: pass1 for names+layout, pass2 (numbers-only) for score values ──
+function parseOCRBoth(pass1Data, pass2Data) {
+  const scores = {}, detectedPids = [];
+  const players = Object.entries(S.players)
+    .map(([pid, p]) => ({ pid, name: (p.name||'').toLowerCase().trim(), words: (p.name||'').split(/\s+/).filter(w=>w.length>2) }))
+    .filter(p => p.name);
+  if (!players.length) return { scores, detectedPids };
+
+  // ── Step 1: find each player's column center from pass1 word bboxes ──
+  const p1Words = pass1Data.words || [];
+  const cols = {}; // pid → {cx, nameY}
+  players.forEach(({ pid, name, words }) => {
+    const hit = p1Words.find(w => {
+      const lc = w.text.toLowerCase();
+      return lc.includes(name) || words.some(nw => nw.length > 2 && lc.includes(nw));
+    });
+    if (hit) cols[pid] = { cx: (hit.bbox.x0 + hit.bbox.x1) / 2, nameY: (hit.bbox.y0 + hit.bbox.y1) / 2 };
+  });
+
+  // ── Step 2: from pass2 (digits only), find the score in each player's column ──
+  const imgW = (pass1Data.lines?.[0]?.bbox?.x1 || pass1Data.words?.[0]?.bbox?.x1 || 800);
+  const colTol = Math.max(60, imgW * 0.10); // 10% image width tolerance
+
+  // Only real numbers from pass2
+  const numWords = (pass2Data.words || [])
+    .filter(w => /^-?\d{1,4}$/.test(w.text.trim()))
+    .sort((a, b) => b.bbox.y0 - a.bbox.y0); // bottommost first (totals)
+
+  Object.entries(cols).forEach(([pid, { cx, nameY }]) => {
+    // Candidates: in the same column, below the name row
+    const cands = numWords.filter(w => {
+      const wcx = (w.bbox.x0 + w.bbox.x1) / 2;
+      return Math.abs(wcx - cx) < colTol && w.bbox.y0 > nameY;
+    });
+    if (!cands.length) return;
+
+    // Bottommost candidate = final total (first in sorted array)
+    // But sanity-check: avoid insane values (Wizard scores rarely exceed ±500 per round)
+    const best = cands.find(c => Math.abs(parseInt(c.text)) < 3000) || cands[0];
+    scores[pid] = parseInt(best.text.trim());
+    detectedPids.push(pid);
+  });
+
+  // ── Step 3: fall back to text-based parsing for any player not yet found ──
+  if (detectedPids.length < players.length) {
+    const textParsed = parseOCRText(pass1Data.text);
+    players.forEach(({ pid }) => {
+      if (scores[pid] === undefined && textParsed.scores[pid] !== undefined) {
+        scores[pid] = textParsed.scores[pid];
+        detectedPids.push(pid);
+      }
+    });
+  }
+
+  return { scores, detectedPids };
+}
+
 async function handlePhoto(file) {
   if (!file) return;
   const areaEl = document.getElementById('photo-state-area');
@@ -1047,40 +1198,57 @@ async function handlePhoto(file) {
       <div class="ocr-status-bar" id="ocr-sb">
         <span class="ocr-sb-ico">🔍</span>
         <div class="ocr-sb-info">
-          <div class="ocr-sb-msg" id="ocr-sb-msg">Analysiere Bild…</div>
+          <div class="ocr-sb-msg" id="ocr-sb-msg">Bild wird optimiert…</div>
           <div class="ocr-sb-bar"><div class="ocr-sb-fill" id="ocr-sb-fill"></div></div>
         </div>
       </div>
     </div>`;
 
-  // Lazy-load Tesseract only when needed (avoids storage-blocked warnings on page load)
+  const setMsg  = t => { const el = document.getElementById('ocr-sb-msg');  if (el) el.textContent = t; };
+  const setFill = p => { const el = document.getElementById('ocr-sb-fill'); if (el) el.style.width = p + '%'; };
+
   const Tesseract = await loadTesseract();
 
   if (Tesseract) {
     try {
-      const result = await Tesseract.recognize(file, 'deu+eng', {
+      // ── Preprocessing ──
+      setFill(4);
+      const processed = await preprocessForOCR(file);
+      setFill(8); setMsg('Scan 1/2 – Namen & Struktur…');
+
+      const tOptions = (extra = {}) => ({
+        tessedit_pageseg_mode: '6',   // single uniform text block
+        tessedit_ocr_engine_mode: '1', // LSTM only
+        ...extra,
         logger: m => {
-          const fill = document.getElementById('ocr-sb-fill');
-          const msg  = document.getElementById('ocr-sb-msg');
-          if (!fill || !msg) return;
-          if (m.status === 'recognizing text') {
-            const pct = Math.round(m.progress * 100);
-            fill.style.width = pct + '%';
-            msg.textContent = `Texterkennung… ${pct}%`;
-          } else if (m.status === 'loading tesseract core') {
-            msg.textContent = 'Tesseract lädt…';
-          } else if (m.status === 'initializing tesseract') {
-            msg.textContent = 'Initialisierung…';
-          } else if (m.status === 'loading language traineddata') {
-            msg.textContent = 'Sprachpaket lädt…';
-          } else if (m.status === 'initialized tesseract') {
-            fill.style.width = '20%';
-            msg.textContent = 'Bereit – starte Erkennung…';
-          }
+          if (m.status !== 'recognizing text') return;
+          const pct = Math.round(m.progress * 100);
+          const [base, span] = extra.tessedit_char_whitelist
+            ? [54, 46]   // pass 2: 54–100%
+            : [8,  46];  // pass 1: 8–54%
+          setFill(base + Math.round(m.progress * span));
+          setMsg(extra.tessedit_char_whitelist
+            ? `Scan 2/2 – Zahlen… ${pct}%`
+            : `Scan 1/2 – Namen… ${pct}%`);
         }
       });
+
+      // Pass 1: full language → names + layout
+      const r1 = await Tesseract.recognize(processed, 'deu+eng', tOptions());
+      setFill(54); setMsg('Scan 2/2 – Zahlen & Punkte…');
+
+      // Pass 2: digits-only whitelist → clean number recognition
+      const r2 = await Tesseract.recognize(processed, 'eng', tOptions({
+        tessedit_char_whitelist: '-0123456789'
+      }));
+
       document.getElementById('ocr-sb')?.remove();
-      renderOCRResult(parseOCRText(result.data.text), areaEl, true);
+
+      // Show raw OCR from pass 1 (has confidence + word structure)
+      renderOCRRaw(r1.data, areaEl);
+      // Parse using both passes (pass2 gives better numbers)
+      renderOCRResult(parseOCRBoth(r1.data, r2.data), areaEl, true);
+
     } catch(e) {
       console.warn('OCR error:', e);
       const sb = document.getElementById('ocr-sb');
@@ -1107,28 +1275,179 @@ async function loadTesseract() {
   });
 }
 
-function parseOCRText(text) {
-  const scores      = {};
-  const detectedPids = [];
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+function confClass(c) {
+  return c >= 80 ? 'ocr-raw-num-g' : c >= 40 ? 'ocr-raw-num-y' : 'ocr-raw-num-r';
+}
 
-  // Scan ALL registered players — not just pre-selected ones
+function renderOCRRaw(data, areaEl) {
+  const lines = (data.lines || []).filter(l => l.text.trim().length > 0);
+  if (!lines.length) return;
+
+  // Build word→confidence lookup keyed by word text+line index to survive duplicates
+  // We render line by line, word by word from Tesseract's own structure
+
+  // ── Try to reconstruct table structure ──
+  // Detect the "name row": the line where most player names appear
+  const playerNames = Object.values(S.players).map(p => (p.name || '').toLowerCase().trim()).filter(Boolean);
+
+  const nameLineIdx = lines.reduce((bestIdx, line, i) => {
+    const lc = line.text.toLowerCase();
+    const hits = playerNames.filter(n => n.split(/\s+/).some(w => w.length > 2 && lc.includes(w))).length;
+    const prev = lines[bestIdx] ? playerNames.filter(n => n.split(/\s+/).some(w => w.length > 2 && lines[bestIdx].text.toLowerCase().includes(w))).length : 0;
+    return hits > prev ? i : bestIdx;
+  }, 0);
+
+  // ── Render each line ──
+  function renderWord(w) {
+    const txt = esc(w.text);
+    const isNum = /^-?\d+$/.test(w.text.trim());
+    const c = Math.round(w.confidence);
+    if (isNum) return `<span class="${confClass(c)}" title="${c}% Konfidenz">${txt}</span>`;
+    // Is it a player name?
+    const lc = w.text.toLowerCase();
+    const isName = playerNames.some(n => n.split(/\s+/).some(p => p.length > 2 && lc.includes(p)));
+    const style = isName ? 'color:var(--pu);font-weight:600' : 'color:var(--tx2)';
+    return `<span style="${style}">${txt}</span>`;
+  }
+
+  // Build as table: each line = one row, each word = one cell
+  // Detect likely "label" lines (first word is non-numeric text like "Runde", "Gesamt")
+  const rows = lines.map((line, li) => {
+    const words = line.words || [];
+    const cells = words.map(w => {
+      const isNum = /^-?\d+$/.test(w.text.trim());
+      const c = Math.round(w.confidence);
+      if (isNum) return `<td><span class="${confClass(c)}" title="${c}% Konfidenz">${esc(w.text)}</span></td>`;
+      const lc = w.text.toLowerCase();
+      const isName = playerNames.some(n => n.split(/\s+/).some(p => p.length > 2 && lc.includes(p)));
+      if (li === nameLineIdx || isName) return `<td class="rt-head">${esc(w.text)}</td>`;
+      return `<td class="rt-label">${esc(w.text)}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  const legend = `<div class="ocr-raw-legend">
+    <span class="ocr-raw-num-g" style="padding:1px 6px">■ sicher ≥80%</span>
+    <span class="ocr-raw-num-y" style="padding:1px 6px">■ unsicher 40–79%</span>
+    <span class="ocr-raw-num-r" style="padding:1px 6px">■ schwer lesbar &lt;40%</span>
+  </div>`;
+
+  const div = document.createElement('div');
+  div.className = 'ocr-raw-wrap';
+  div.innerHTML = `
+    <details class="ocr-raw-details" open>
+      <summary class="ocr-raw-summary">📋 OCR Rohdaten – zum Nachprüfen</summary>
+      ${legend}
+      <div class="ocr-raw-body">
+        <table class="ocr-raw-table"><tbody>${rows}</tbody></table>
+      </div>
+    </details>`;
+  areaEl.appendChild(div);
+}
+
+function parseOCRText(text) {
+  const scores       = {};
+  const detectedPids = [];
+
+  const rawLines = text.split('\n').map(l => l.trimEnd());
+  // Remove completely empty lines only at start/end; keep internal spacing for column alignment
+  const lines = rawLines.filter((l, i, a) => {
+    const trimmed = l.trim();
+    if (trimmed.length === 0) return false; // drop blank lines
+    return true;
+  });
+
+  const lcLines = lines.map(l => l.toLowerCase());
+
+  // ── Helper: find column index (char position) of a name in a line ──
+  function colOf(line, name) {
+    const idx = line.toLowerCase().indexOf(name.toLowerCase());
+    return idx;
+  }
+
+  // ── Helper: extract number from a string nearest to a given char position ──
+  function numNearCol(line, col) {
+    // Find all numbers with their positions
+    const re = /-?\d+/g;
+    let m, best = null, bestDist = Infinity;
+    while ((m = re.exec(line)) !== null) {
+      const mid = m.index + m[0].length / 2;
+      const dist = Math.abs(mid - col);
+      if (dist < bestDist) { bestDist = dist; best = parseInt(m[0]); }
+    }
+    return best; // null if no numbers
+  }
+
+  // ── Step 1: find which line each player's name is on ──
+  const playerMeta = {}; // pid → { nameLineIdx, col }
   Object.entries(S.players).forEach(([pid, p]) => {
-    const pname = (p.name||'').toLowerCase().trim();
+    const pname = (p.name || '').trim();
     if (!pname) return;
-    const match = lines.find(l => {
-      const lc = l.toLowerCase();
-      // Full name match OR any word longer than 2 chars
-      return lc.includes(pname) || pname.split(/\s+/).some(w => w.length > 2 && lc.includes(w));
-    });
-    if (match) {
-      const nums = match.match(/-?\d+/g);
-      if (nums) {
-        scores[pid] = parseInt(nums[nums.length - 1]);
-        detectedPids.push(pid);
+    const words = pname.split(/\s+/).filter(w => w.length > 2);
+
+    for (let i = 0; i < lcLines.length; i++) {
+      const lc = lcLines[i];
+      const fullMatch = lc.includes(pname.toLowerCase());
+      const wordMatch = words.some(w => lc.includes(w.toLowerCase()));
+      if (fullMatch || wordMatch) {
+        const col = colOf(lines[i], fullMatch ? pname : words.find(w => lc.includes(w.toLowerCase())));
+        playerMeta[pid] = { nameLineIdx: i, col };
+        break;
       }
     }
   });
+
+  if (!Object.keys(playerMeta).length) return { scores, detectedPids };
+
+  // ── Step 2: determine the name row (the one containing the most player names) ──
+  const nameLineIdx = Object.values(playerMeta)
+    .reduce((acc, { nameLineIdx }) => { acc[nameLineIdx] = (acc[nameLineIdx] || 0) + 1; return acc; }, {});
+  const primaryNameLine = parseInt(Object.entries(nameLineIdx).sort((a, b) => b[1] - a[1])[0][0]);
+
+  // ── Step 3: for each player, get their column position ──
+  // Then scan from the LAST line upward looking for the totals row
+  // (Gesamt / Total row is usually the last line with numbers)
+  const numericLines = lines
+    .map((l, i) => ({ i, nums: l.match(/-?\d+/g) }))
+    .filter(x => x.nums && x.i > primaryNameLine);
+
+  // The total row is the last numeric line (or a line containing "gesamt"/"total"/"summe")
+  const gesamtIdx = lcLines.findIndex(l =>
+    /gesamt|total|summe|σ|∑|sum/i.test(l) && l.match(/-?\d+/g)
+  );
+  const totalLine = gesamtIdx !== -1
+    ? lines[gesamtIdx]
+    : (numericLines.length ? lines[numericLines[numericLines.length - 1].i] : null);
+
+  Object.entries(playerMeta).forEach(([pid, { nameLineIdx: nli, col }]) => {
+    let score = null;
+
+    // Priority 1: number in the totals line at the player's column position
+    if (totalLine) score = numNearCol(totalLine, col);
+
+    // Priority 2: number on the player's own name line (format "Nick 120")
+    if (score === null) {
+      const nameLine = lines[nli];
+      const nums = nameLine.match(/-?\d+/g);
+      if (nums) score = parseInt(nums[nums.length - 1]);
+    }
+
+    // Priority 3: last number in the player's column across all numeric lines
+    if (score === null && numericLines.length) {
+      // Use column position: pick the number closest to col on each numeric line,
+      // take the value from the very last such line (most likely the running total)
+      for (let k = numericLines.length - 1; k >= 0; k--) {
+        const n = numNearCol(lines[numericLines[k].i], col);
+        if (n !== null) { score = n; break; }
+      }
+    }
+
+    if (score !== null) {
+      scores[pid] = score;
+      detectedPids.push(pid);
+    }
+  });
+
   return { scores, detectedPids };
 }
 
@@ -1146,7 +1465,7 @@ function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
   // If still no players at all, fall back to all registered players for manual entry
   if (!S.ng.pids.length) S.ng.pids = Object.keys(S.players);
 
-  const detectedCount = S.ng.pids.filter(pid => scores[pid] != null).length;
+  const detectedCount = S.ng.pids.filter(pid => scores[pid] !== undefined).length;
   const autoAddedNote = added.length
     ? `<p style="color:var(--cy);font-size:.76rem;margin-bottom:.4rem;text-align:center">✨ ${added.map(p => S.players[p]?.name).filter(Boolean).join(', ')} automatisch hinzugefügt</p>`
     : '';
@@ -1160,7 +1479,7 @@ function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
     <div class="scr-form">
       ${S.ng.pids.map(pid => {
         const p = S.players[pid];
-        const found = scores[pid] != null;
+        const found = scores[pid] !== undefined;
         return `<div class="scr-row" style="${found ? 'border-color:rgba(16,185,129,.35)' : ''}">
           <div class="scr-ava">${p?.emoji||'🧙'}</div>
           <div class="scr-name">${esc(p?.name||'?')}${found ? '<span style="font-size:.62rem;color:var(--gr);margin-left:.4rem">✓ erkannt</span>' : ''}</div>

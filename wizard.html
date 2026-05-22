@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#7c3aed">
 <title>Wizard Arena ⚡</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="shortcut icon" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -620,6 +622,23 @@ canvas.mini-chart{display:block;width:100%;height:100px}
 .ocr-sb-msg{font-size:.78rem;color:var(--tx2);margin-bottom:.3rem}
 .ocr-sb-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
 .ocr-sb-fill{height:100%;background:linear-gradient(90deg,var(--pu),var(--go));border-radius:99px;transition:width .25s ease;width:0%}
+
+/* ── OCR RAW PREVIEW ── */
+.ocr-raw-wrap{margin:.75rem 0 .5rem}
+.ocr-raw-details{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--rmd);overflow:hidden}
+.ocr-raw-summary{padding:.6rem 1rem;cursor:pointer;font-size:.8rem;color:var(--tx2);font-weight:600;list-style:none;user-select:none;display:flex;align-items:center;gap:.4rem}
+.ocr-raw-summary::-webkit-details-marker{display:none}
+.ocr-raw-details[open] .ocr-raw-summary::after{content:'▲';margin-left:auto;font-size:.65rem;opacity:.5}
+.ocr-raw-details:not([open]) .ocr-raw-summary::after{content:'▼';margin-left:auto;font-size:.65rem;opacity:.5}
+.ocr-raw-legend{display:flex;gap:.75rem;padding:.2rem 1rem .6rem;font-size:.68rem;flex-wrap:wrap}
+.ocr-raw-body{padding:.5rem 1rem .9rem;overflow-x:auto;max-height:280px}
+.ocr-raw-table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:.78rem}
+.ocr-raw-table td{padding:.2rem .55rem;border:1px solid var(--bdr);text-align:center;white-space:nowrap}
+.ocr-raw-table td.rt-head{color:var(--pu);font-weight:600;background:rgba(124,58,237,.08)}
+.ocr-raw-table td.rt-label{color:var(--tx2);text-align:left;font-size:.72rem}
+.ocr-raw-num-g{color:#10b981;background:rgba(16,185,129,.15);border-radius:4px;padding:1px 5px;font-weight:700;cursor:default}
+.ocr-raw-num-y{color:#f59e0b;background:rgba(245,158,11,.15);border-radius:4px;padding:1px 5px;font-weight:700;cursor:default}
+.ocr-raw-num-r{color:#ef4444;background:rgba(239,68,68,.15);border-radius:4px;padding:1px 5px;font-weight:700;cursor:default}
 
 /* ── SEASON BANNER ── */
 .season-banner{
