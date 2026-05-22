@@ -939,9 +939,12 @@ function renderNG2() {
   } else if (mode === 'photo') {
     el.innerHTML = `
       <h2 class="step-h">Punktezettel scannen</h2>
-      <p style="color:var(--tx2);font-size:.83rem;text-align:center;margin-bottom:1rem">
-        Fotografiere den Spielzettel — die KI erkennt die Punkte automatisch
+      <p style="color:var(--tx2);font-size:.83rem;text-align:center;margin-bottom:.6rem">
+        OpenCV erkennt Perspektive · KI liest Punkte automatisch
       </p>
+      <a href="wizard-sheet.html" target="_blank" class="sheet-hint-link">
+        📄 OCR-optimiertes Spielblatt drucken
+      </a>
       <div class="photo-btns">
         <input type="file" id="photo-inp-cam" accept="image/*" capture="environment" style="display:none">
         <input type="file" id="photo-inp-gal" accept="image/*" style="display:none">
@@ -984,8 +987,8 @@ async function submitScores() {
   if (!valid) { toast('Bitte alle Punkte eingeben!','err'); return; }
   if (Object.keys(scores).length < 2) { toast('Mind. 2 Spieler!','err'); return; }
 
-  const btn = document.getElementById('btn-save-scores');
-  btn.disabled = true; btn.textContent = '⏳ Speichern…';
+  const btn = document.getElementById('btn-save-scores') || document.getElementById('btn-save-ocr');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Speichern…'; }
 
   try {
     const { winner, newlyUnlocked } = await saveGame(scores);
@@ -1002,7 +1005,7 @@ async function submitScores() {
   } catch(e) {
     toast('Fehler beim Speichern!','err');
     console.error(e);
-    btn.disabled = false; btn.textContent = '💾 Spiel speichern';
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Spiel speichern'; }
   }
 }
 
@@ -1190,75 +1193,528 @@ function parseOCRBoth(pass1Data, pass2Data) {
 async function handlePhoto(file) {
   if (!file) return;
   const areaEl = document.getElementById('photo-state-area');
-  const url = URL.createObjectURL(file);
+  const url    = URL.createObjectURL(file);
 
   areaEl.innerHTML = `
     <div class="photo-state-wrap">
       <img class="photo-preview-img" src="${url}" alt="Zettel">
       <div class="ocr-status-bar" id="ocr-sb">
-        <span class="ocr-sb-ico">🔍</span>
+        <span class="ocr-sb-ico" id="ocr-sb-ico">🔍</span>
         <div class="ocr-sb-info">
-          <div class="ocr-sb-msg" id="ocr-sb-msg">Bild wird optimiert…</div>
+          <div class="ocr-sb-msg" id="ocr-sb-msg">Wird vorbereitet…</div>
           <div class="ocr-sb-bar"><div class="ocr-sb-fill" id="ocr-sb-fill"></div></div>
         </div>
       </div>
     </div>`;
 
   const setMsg  = t => { const el = document.getElementById('ocr-sb-msg');  if (el) el.textContent = t; };
+  const setIco  = t => { const el = document.getElementById('ocr-sb-ico');  if (el) el.textContent = t; };
   const setFill = p => { const el = document.getElementById('ocr-sb-fill'); if (el) el.style.width = p + '%'; };
 
-  const Tesseract = await loadTesseract();
+  const [Tesseract] = await Promise.all([
+    loadTesseract(),
+    loadOpenCV() // load in parallel – ~8 MB but cached after first use
+  ]);
 
-  if (Tesseract) {
-    try {
-      // ── Preprocessing ──
-      setFill(4);
-      const processed = await preprocessForOCR(file);
-      setFill(8); setMsg('Scan 1/2 – Namen & Struktur…');
-
-      const tOptions = (extra = {}) => ({
-        tessedit_pageseg_mode: '6',   // single uniform text block
-        tessedit_ocr_engine_mode: '1', // LSTM only
-        ...extra,
-        logger: m => {
-          if (m.status !== 'recognizing text') return;
-          const pct = Math.round(m.progress * 100);
-          const [base, span] = extra.tessedit_char_whitelist
-            ? [54, 46]   // pass 2: 54–100%
-            : [8,  46];  // pass 1: 8–54%
-          setFill(base + Math.round(m.progress * span));
-          setMsg(extra.tessedit_char_whitelist
-            ? `Scan 2/2 – Zahlen… ${pct}%`
-            : `Scan 1/2 – Namen… ${pct}%`);
-        }
-      });
-
-      // Pass 1: full language → names + layout
-      const r1 = await Tesseract.recognize(processed, 'deu+eng', tOptions());
-      setFill(54); setMsg('Scan 2/2 – Zahlen & Punkte…');
-
-      // Pass 2: digits-only whitelist → clean number recognition
-      const r2 = await Tesseract.recognize(processed, 'eng', tOptions({
-        tessedit_char_whitelist: '-0123456789'
-      }));
-
-      document.getElementById('ocr-sb')?.remove();
-
-      // Show raw OCR from pass 1 (has confidence + word structure)
-      renderOCRRaw(r1.data, areaEl);
-      // Parse using both passes (pass2 gives better numbers)
-      renderOCRResult(parseOCRBoth(r1.data, r2.data), areaEl, true);
-
-    } catch(e) {
-      console.warn('OCR error:', e);
-      const sb = document.getElementById('ocr-sb');
-      if (sb) sb.innerHTML = `<span class="ocr-sb-ico">⚠️</span><div class="ocr-sb-info"><div class="ocr-sb-msg">OCR fehlgeschlagen – manuell eingeben</div></div>`;
-      renderOCRResult({}, areaEl, false);
-    }
-  } else {
+  if (!Tesseract) {
     const sb = document.getElementById('ocr-sb');
-    if (sb) sb.innerHTML = `<span class="ocr-sb-ico">📝</span><div class="ocr-sb-info"><div class="ocr-sb-msg">Punkte manuell eingeben</div></div>`;
+    if (sb) sb.innerHTML = `<span class="ocr-sb-ico">📝</span><div class="ocr-sb-info"><div class="ocr-sb-msg">OCR nicht verfügbar – manuell eingeben</div></div>`;
+    return renderOCRResult({}, areaEl, false);
+  }
+
+  try {
+    // ── Step 1: Perspective correction (OpenCV) ──
+    setIco('📐'); setMsg('OpenCV – Blatterkennung…'); setFill(3);
+    let blob = await (async () => { const r = await fetch(url); return r.blob(); })();
+    blob = await correctPerspective(blob, setMsg);
+    setFill(10);
+
+    // ── Step 2: Adaptive contrast + sharpening ──
+    setIco('✨'); setMsg('Bild wird optimiert…');
+    const processed = await preprocessForOCR(blob);
+    setFill(16);
+
+    const tOpts = (extra = {}) => ({
+      tessedit_pageseg_mode:    '6',  // single uniform text block
+      tessedit_ocr_engine_mode: '1',  // LSTM only – most accurate
+      ...extra,
+      logger: m => {
+        if (m.status !== 'recognizing text') return;
+        const pct = Math.round(m.progress * 100);
+        if (extra.tessedit_char_whitelist) {
+          setFill(58 + Math.round(m.progress * 42));
+          setMsg(`Scan 2/2 – Ziffernerkennung… ${pct}%`);
+        } else {
+          setFill(16 + Math.round(m.progress * 42));
+          setMsg(`Scan 1/2 – Texterkennung… ${pct}%`);
+        }
+      }
+    });
+
+    // ── Step 3: Pass 1 – full language (names + layout) ──
+    setIco('🔍'); setMsg('Scan 1/2 – Namen & Struktur…');
+    const r1 = await Tesseract.recognize(processed, 'deu+eng', tOpts());
+    setFill(58); setIco('🔢'); setMsg('Scan 2/2 – Ziffernerkennung…');
+
+    // ── Step 4: Pass 2 – digits-only whitelist (cleaner numbers) ──
+    const r2 = await Tesseract.recognize(processed, 'eng', tOpts({
+      tessedit_char_whitelist: '-0123456789'
+    }));
+
+    document.getElementById('ocr-sb')?.remove();
+    URL.revokeObjectURL(url);
+
+    // ── Step 5: Render results ──
+    renderOCRRaw(r1.data, areaEl);
+    renderOCRResult(parseOCRBoth(r1.data, r2.data), areaEl, true);
+
+  } catch (e) {
+    console.warn('OCR pipeline error:', e);
+    URL.revokeObjectURL(url);
+    const sb = document.getElementById('ocr-sb');
+    if (sb) sb.innerHTML = `<span class="ocr-sb-ico">⚠️</span><div class="ocr-sb-info"><div class="ocr-sb-msg">Scan fehlgeschlagen – bitte manuell eingeben</div></div>`;
     renderOCRResult({}, areaEl, false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIVE SCANNER SYSTEM
+   Workflow: Camera stream → OpenCV edge detect → capture →
+             perspective correct → grid segment → Tesseract per cell →
+             review table → save
+═══════════════════════════════════════════════════════════════ */
+
+const Scanner = {
+  stream: null,
+  rafId: null,
+  detected: false,
+  detectionCanvas: null,
+  lastCorners: null,
+  onCapture: null,
+};
+
+async function openLiveScanner(onCapture) {
+  Scanner.onCapture = onCapture;
+  const modal = document.getElementById('modal-scanner');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+
+  const video  = document.getElementById('scanner-video');
+  const canvas = document.getElementById('scanner-canvas');
+  const corners = document.getElementById('sc-corners');
+  corners.classList.add('scanning');
+
+  // Start camera (prefer rear-facing)
+  try {
+    Scanner.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    video.srcObject = Scanner.stream;
+    await video.play();
+    setScannerStatus('🔍', 'Halte die Kamera über den Zettel');
+    // Start detection loop
+    Scanner.rafId = requestAnimationFrame(scannerLoop);
+  } catch (e) {
+    console.warn('Camera:', e);
+    setScannerStatus('⚠️', 'Kamera nicht verfügbar');
+  }
+}
+
+function setScannerStatus(icon, text, good = false) {
+  const s  = document.getElementById('scanner-status');
+  const si = document.getElementById('scanner-status-icon');
+  const st = document.getElementById('scanner-status-text');
+  if (si) si.textContent = icon;
+  if (st) st.textContent = text;
+  if (s) { s.classList.toggle('good', good); s.classList.remove('hidden'); }
+  const tip = document.getElementById('scanner-tip');
+  if (tip) tip.textContent = good ? 'Zettel erkannt — tippe zum Scannen' : 'Halte die Kamera über den Zettel';
+  const cap = document.getElementById('btn-scanner-capture');
+  if (cap) cap.classList.toggle('detected', good);
+  const corners = document.getElementById('sc-corners');
+  if (corners) {
+    corners.classList.toggle('detected', good);
+    corners.classList.toggle('scanning', !good);
+  }
+}
+
+let _scanTick = 0;
+async function scannerLoop(ts) {
+  const video = document.getElementById('scanner-video');
+  if (!video || !Scanner.stream) return;
+  Scanner.rafId = requestAnimationFrame(scannerLoop);
+
+  // Run detection every 400ms
+  _scanTick++;
+  if (_scanTick % 12 !== 0) return; // ~24fps / 12 = ~2fps detection rate
+
+  const cv = _cv; // already loaded or null
+  if (!cv) return;
+
+  try {
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return;
+
+    // Downscale for fast detection
+    const scale  = 400 / Math.max(w, h);
+    const dw = Math.round(w * scale), dh = Math.round(h * scale);
+    if (!Scanner.detectionCanvas) {
+      Scanner.detectionCanvas = document.createElement('canvas');
+    }
+    Scanner.detectionCanvas.width = dw;
+    Scanner.detectionCanvas.height = dh;
+    const dctx = Scanner.detectionCanvas.getContext('2d');
+    dctx.drawImage(video, 0, 0, dw, dh);
+
+    const src  = cv.imread(Scanner.detectionCanvas);
+    const gray = new cv.Mat(), blur = new cv.Mat(), edges = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
+    cv.Canny(blur, edges, 40, 130);
+
+    const k = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+    const dil = new cv.Mat();
+    cv.dilate(edges, dil, k);
+
+    const contours = new cv.MatVector(), hier = new cv.Mat();
+    cv.findContours(dil, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    let best = null, bestArea = dw * dh * 0.12;
+    for (let i = 0; i < contours.size(); i++) {
+      const cnt = contours.get(i);
+      const area = cv.contourArea(cnt);
+      const peri = cv.arcLength(cnt, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+      cnt.delete();
+      if (approx.rows === 4 && area > bestArea) {
+        bestArea = area;
+        best?.delete();
+        best = approx;
+      } else { approx.delete(); }
+    }
+
+    [src, gray, blur, edges, k, dil, contours, hier].forEach(m => { try { m.delete(); } catch {} });
+
+    if (best) {
+      const pts = [];
+      for (let i = 0; i < 4; i++)
+        pts.push({ x: best.data32S[i * 2] / scale, y: best.data32S[i * 2 + 1] / scale });
+      best.delete();
+      Scanner.lastCorners = pts;
+      drawDetectionOutline(pts, w, h);
+      setScannerStatus('✅', 'Zettel erkannt', true);
+    } else {
+      best?.delete();
+      Scanner.lastCorners = null;
+      const outline = document.getElementById('scanner-outline');
+      if (outline) { outline.classList.remove('visible'); document.getElementById('scanner-poly').setAttribute('points', ''); }
+      setScannerStatus('🔍', 'Halte die Kamera über den Zettel', false);
+    }
+  } catch (e) { /* silent */ }
+}
+
+function drawDetectionOutline(pts, vw, vh) {
+  const viewport = document.getElementById('scanner-viewport');
+  const outline  = document.getElementById('scanner-outline');
+  const poly     = document.getElementById('scanner-poly');
+  if (!outline || !poly || !viewport) return;
+
+  const vr = viewport.getBoundingClientRect();
+  const scaleX = 100 / vw, scaleY = 100 / vh;
+  const sorted = sortCorners(pts);
+  const pointStr = sorted.map(p => `${(p.x * scaleX).toFixed(1)},${(p.y * scaleY).toFixed(1)}`).join(' ');
+  poly.setAttribute('points', pointStr);
+  outline.classList.add('visible');
+}
+
+async function captureFromScanner() {
+  const video = document.getElementById('scanner-video');
+  if (!video || !video.videoWidth) return;
+
+  // Stop loop
+  cancelAnimationFrame(Scanner.rafId);
+  Scanner.rafId = null;
+
+  // Show processing overlay
+  const viewport = document.getElementById('scanner-viewport');
+  viewport.insertAdjacentHTML('beforeend', `
+    <div class="scanner-processing" id="scanner-proc">
+      <div class="scanner-proc-icon">⚙️</div>
+      <div class="scanner-proc-steps">
+        <div class="proc-step active" id="ps-1"><div class="proc-step-dot"></div>Bild aufnehmen</div>
+        <div class="proc-step" id="ps-2"><div class="proc-step-dot"></div>Perspektive korrigieren</div>
+        <div class="proc-step" id="ps-3"><div class="proc-step-dot"></div>Kontrast optimieren</div>
+        <div class="proc-step" id="ps-4"><div class="proc-step-dot"></div>Scan 1/2 – Text erkennen</div>
+        <div class="proc-step" id="ps-5"><div class="proc-step-dot"></div>Scan 2/2 – Zahlen</div>
+        <div class="proc-step" id="ps-6"><div class="proc-step-dot"></div>Analyse abschließen</div>
+      </div>
+      <div class="scanner-proc-bar"><div class="scanner-proc-fill" id="proc-fill"></div></div>
+    </div>`);
+
+  const setStep = (n, pct) => {
+    for (let i = 1; i <= 6; i++) {
+      const el = document.getElementById(`ps-${i}`);
+      if (!el) continue;
+      el.classList.toggle('done',   i < n);
+      el.classList.toggle('active', i === n);
+    }
+    const fill = document.getElementById('proc-fill');
+    if (fill) fill.style.width = pct + '%';
+  };
+
+  try {
+    // 1. Capture frame from video
+    setStep(1, 5);
+    const capCanvas = document.createElement('canvas');
+    capCanvas.width  = video.videoWidth;
+    capCanvas.height = video.videoHeight;
+    capCanvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(r => capCanvas.toBlob(r, 'image/jpeg', 0.92));
+
+    // Stop stream
+    Scanner.stream?.getTracks().forEach(t => t.stop());
+
+    // 2. Perspective correction
+    setStep(2, 20);
+    const corrected = await correctPerspective(blob, () => {});
+
+    // 3. Preprocessing
+    setStep(3, 35);
+    const processed = await preprocessForOCR(corrected);
+
+    // Load Tesseract
+    const Tesseract = await loadTesseract();
+    if (!Tesseract) throw new Error('Tesseract not available');
+
+    const tOpts = extra => ({
+      tessedit_pageseg_mode:    '6',
+      tessedit_ocr_engine_mode: '1',
+      ...extra,
+      logger: m => {
+        if (m.status !== 'recognizing text') return;
+        if (extra?.tessedit_char_whitelist) {
+          setStep(5, 70 + Math.round(m.progress * 25));
+        } else {
+          setStep(4, 40 + Math.round(m.progress * 30));
+        }
+      }
+    });
+
+    // 4. Pass 1
+    setStep(4, 40);
+    const r1 = await Tesseract.recognize(processed, 'deu+eng', tOpts());
+
+    // 5. Pass 2 – numbers only
+    setStep(5, 70);
+    const r2 = await Tesseract.recognize(processed, 'eng', tOpts({ tessedit_char_whitelist: '-0123456789' }));
+
+    // 6. Build result
+    setStep(6, 96);
+    const parsed = parseOCRBoth(r1.data, r2.data);
+
+    await new Promise(r => setTimeout(r, 400)); // brief pause for UX
+    setStep(6, 100);
+
+    // Close scanner, show result
+    closeScanner();
+    showScanResult(parsed, r1.data);
+
+  } catch (e) {
+    console.error('Scanner capture:', e);
+    closeScanner();
+    toast('Scan fehlgeschlagen – bitte erneut versuchen', 'err');
+  }
+}
+
+function closeScanner() {
+  cancelAnimationFrame(Scanner.rafId);
+  Scanner.rafId = null;
+  Scanner.stream?.getTracks().forEach(t => t.stop());
+  Scanner.stream = null;
+  Scanner.lastCorners = null;
+  Scanner.detected = false;
+  const modal = document.getElementById('modal-scanner');
+  if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); }
+}
+
+/* ─── Scan Result Modal ─────────────────────────────────────── */
+function showScanResult(parsed, pass1Data) {
+  const scores       = parsed?.scores || {};
+  const detectedPids = parsed?.detectedPids || [];
+
+  // Merge detected players into game
+  detectedPids.forEach(pid => { if (!S.ng.pids.includes(pid)) S.ng.pids.push(pid); });
+  if (!S.ng.pids.length) S.ng.pids = Object.keys(S.players);
+
+  const pids   = S.ng.pids;
+  const total  = pids.length;
+  const found  = pids.filter(pid => scores[pid] !== undefined).length;
+
+  // Summary badges
+  const confBadge = found === total
+    ? `<span class="review-badge review-badge-ok">✅ Alle ${total} erkannt</span>`
+    : `<span class="review-badge review-badge-warn">⚠️ ${found}/${total} erkannt</span>`;
+
+  // Build review cards (one per player, large score input)
+  const playerCards = pids.map(pid => {
+    const p   = S.players[pid];
+    const val = scores[pid];
+    const ok  = val !== undefined;
+    const insane = ok && (val < -300 || val > 600);
+    return `
+      <div class="ocr-card" style="border-color:${insane ? 'rgba(239,68,68,.4)' : ok ? 'rgba(16,185,129,.35)' : 'rgba(255,255,255,.08)'}">
+        <div class="ocr-card-left">
+          <span class="ocr-card-ava">${p?.emoji || '🧙'}</span>
+          <div class="ocr-card-info">
+            <div class="ocr-card-name">${esc(p?.name || '?')}</div>
+            ${insane
+              ? `<span class="ocr-badge ocr-badge-r">⚠ unplausibel</span>`
+              : ok
+              ? `<span class="ocr-badge ocr-badge-g">✓ erkannt</span>`
+              : `<span class="ocr-badge ocr-badge-x">? nicht erkannt</span>`}
+          </div>
+        </div>
+        <div class="ocr-card-right">
+          <input type="number" class="ocr-score-inp scr-inp" data-pid="${pid}"
+            placeholder="0" value="${ok ? val : ''}"
+            style="${insane ? 'color:#ef4444' : ''}">
+          <span class="ocr-unit">Pkt</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Raw OCR debug (collapsed)
+  const rawLines = (pass1Data?.lines || []).filter(l => l.text.trim()).map(line => {
+    const words = (line.words || []).map(w => {
+      const isNum = /^-?\d+$/.test(w.text.trim());
+      const c = Math.round(w.confidence);
+      if (isNum) return `<span class="${confClass(c)}" title="${c}%">${esc(w.text)}</span>`;
+      const lc = w.text.toLowerCase();
+      const isName = Object.values(S.players).some(p =>
+        (p.name || '').split(/\s+/).some(n => n.length > 2 && lc.includes(n.toLowerCase())));
+      return `<span style="${isName ? 'color:var(--pu2);font-weight:600' : 'color:var(--tx2)'}">${esc(w.text)}</span>`;
+    }).join(' ');
+    return `<div style="font-family:var(--mono);font-size:.74rem;line-height:1.7">${words}</div>`;
+  }).join('');
+
+  const body = document.getElementById('scan-result-body');
+  body.innerHTML = `
+    <div class="review-summary">${confBadge}</div>
+    <div class="ocr-cards" style="margin-bottom:1rem">${playerCards}</div>
+    <details class="ocr-raw-details" style="margin-bottom:1rem">
+      <summary class="ocr-raw-summary">📋 OCR Rohdaten</summary>
+      <div class="ocr-raw-legend">
+        <span class="ocr-raw-num-g" style="padding:1px 6px">■ ≥80%</span>
+        <span class="ocr-raw-num-y" style="padding:1px 6px">■ 40–79%</span>
+        <span class="ocr-raw-num-r" style="padding:1px 6px">■ &lt;40%</span>
+      </div>
+      <div class="ocr-raw-body">${rawLines || '<p style="color:var(--tx2);font-size:.8rem">Keine Rohdaten</p>'}</div>
+    </details>`;
+
+  // Live validation on score inputs
+  body.querySelectorAll('.ocr-score-inp').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const v = parseInt(inp.value);
+      inp.style.color = !isNaN(v) && (v < -300 || v > 600) ? '#ef4444' : '';
+    });
+  });
+
+  // Show result modal
+  const modal = document.getElementById('modal-scan-result');
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeScanResult() {
+  const modal = document.getElementById('modal-scan-result');
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+/* ─── Scanner init events (called once from initEvents) ─────── */
+function initScannerEvents() {
+  // Open scanner when 📷 Kamera is clicked
+  document.addEventListener('click', e => {
+    if (e.target.closest('#btn-photo-cam')) {
+      e.preventDefault();
+      e.stopPropagation();
+      openLiveScanner();
+    }
+  });
+
+  document.getElementById('btn-scanner-close')?.addEventListener('click', closeScanner);
+
+  document.getElementById('btn-scanner-capture')?.addEventListener('click', captureFromScanner);
+
+  // Gallery fallback
+  document.getElementById('btn-scanner-gallery')?.addEventListener('click', () => {
+    document.getElementById('scanner-gallery-inp')?.click();
+  });
+  document.getElementById('scanner-gallery-inp')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    closeScanner();
+    handlePhotoFromFile(file);
+  });
+
+  // Result modal – back button
+  document.getElementById('btn-result-back')?.addEventListener('click', () => {
+    closeScanResult();
+    openLiveScanner();
+  });
+
+  // Result modal – save
+  document.getElementById('btn-result-save')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-result-save');
+    btn.disabled = true; btn.textContent = '⏳';
+    const scores = {};
+    let valid = true;
+    document.querySelectorAll('#scan-result-body .scr-inp').forEach(inp => {
+      const v = parseInt(inp.value);
+      if (isNaN(v)) { valid = false; inp.style.borderColor = 'var(--rd)'; }
+      else { scores[inp.dataset.pid] = v; inp.style.borderColor = ''; }
+    });
+    if (!valid) { toast('Bitte alle Punkte eingeben!', 'err'); btn.disabled = false; btn.textContent = '💾 Speichern'; return; }
+    if (Object.keys(scores).length < 2) { toast('Mind. 2 Spieler!', 'err'); btn.disabled = false; btn.textContent = '💾 Speichern'; return; }
+    try {
+      const { winner, newlyUnlocked } = await saveGame(scores);
+      closeScanResult();
+      showConfetti();
+      renderAll();
+      toast(`🏆 ${esc(S.players[winner]?.name)} gewinnt!`, 'ok');
+      if (newlyUnlocked.length) setTimeout(() => processAchQueue(newlyUnlocked), 1200);
+    } catch (e) {
+      console.error(e);
+      toast('Fehler beim Speichern!', 'err');
+      btn.disabled = false; btn.textContent = '💾 Speichern';
+    }
+  });
+}
+
+/* ─── Fallback: process a file through the full pipeline ─────── */
+async function handlePhotoFromFile(file) {
+  // Find the photo state area (wizard step 2 must be active)
+  const areaEl = document.getElementById('photo-state-area');
+  if (areaEl) {
+    handlePhoto(file); // existing pipeline renders into photo-state-area
+  } else {
+    // Direct path: skip the wizard step UI, go straight to scan result
+    const url = URL.createObjectURL(file);
+    const blob = await fetch(url).then(r => r.blob()).finally(() => URL.revokeObjectURL(url));
+    const [Tesseract] = await Promise.all([loadTesseract(), loadOpenCV()]);
+    if (!Tesseract) { toast('OCR nicht verfügbar', 'err'); return; }
+
+    toast('Bild wird verarbeitet…', 'ok');
+    try {
+      const corrected = await correctPerspective(blob, () => {});
+      const processed = await preprocessForOCR(corrected);
+      const tOpts = extra => ({ tessedit_pageseg_mode: '6', tessedit_ocr_engine_mode: '1', ...extra, logger: () => {} });
+      const r1 = await Tesseract.recognize(processed, 'deu+eng', tOpts());
+      const r2 = await Tesseract.recognize(processed, 'eng', tOpts({ tessedit_char_whitelist: '-0123456789' }));
+      showScanResult(parseOCRBoth(r1.data, r2.data), r1.data);
+    } catch (e) { toast('Scan fehlgeschlagen', 'err'); }
   }
 }
 
@@ -1272,6 +1728,128 @@ async function loadTesseract() {
     s.onload  = () => { _tesseract = window.Tesseract; resolve(_tesseract); };
     s.onerror = () => resolve(null);
     document.head.appendChild(s);
+  });
+}
+
+// ── OpenCV.js lazy load ──
+let _cv = null;
+async function loadOpenCV() {
+  if (_cv) return _cv;
+  if (window.cv?.warpPerspective) { _cv = window.cv; return _cv; }
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://docs.opencv.org/4.10.0/opencv.js';
+    s.async = true;
+    s.onload = () => {
+      const init = () => { _cv = window.cv; resolve(_cv); };
+      if (window.cv?.warpPerspective) { init(); return; }
+      window.cv = window.cv || {};
+      const prev = window.cv.onRuntimeInitialized;
+      window.cv.onRuntimeInitialized = () => { if (prev) prev(); init(); };
+      setTimeout(() => resolve(null), 20000); // timeout fallback
+    };
+    s.onerror = () => resolve(null);
+    document.head.appendChild(s);
+  });
+}
+
+// ── Geometry helpers ──
+function ptDist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function sortCorners(pts) {
+  // Returns [TL, TR, BR, BL] from 4 unsorted points
+  const bySum  = [...pts].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  const byDiff = [...pts].sort((a, b) => (a.x - a.y) - (b.x - b.y));
+  return [bySum[0], byDiff[byDiff.length - 1], bySum[bySum.length - 1], byDiff[0]];
+}
+
+// ── Perspective correction: detect document boundary and warp ──
+async function correctPerspective(blob, onStatus) {
+  const cv = await loadOpenCV();
+  if (!cv) return blob;
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const dels = [];
+      const T = m => { dels.push(m); return m; };
+      const cleanup = () => dels.forEach(m => { try { m.delete(); } catch {} });
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+
+        const src     = T(cv.imread(canvas));
+        const gray    = T(new cv.Mat());
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+        const blurred = T(new cv.Mat());
+        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+        const edges   = T(new cv.Mat());
+        cv.Canny(blurred, edges, 50, 150);
+
+        const kernel  = T(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3)));
+        const dilated = T(new cv.Mat());
+        cv.dilate(edges, dilated, kernel);
+
+        const contours = T(new cv.MatVector());
+        const hier     = T(new cv.Mat());
+        cv.findContours(dilated, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+        const imgArea = img.width * img.height;
+        let maxArea = imgArea * 0.15; // ignore contours < 15% of image
+        let bestApprox = null;
+
+        for (let i = 0; i < contours.size(); i++) {
+          const cnt  = contours.get(i);
+          const area = cv.contourArea(cnt);
+          const peri = cv.arcLength(cnt, true);
+          const approx = new cv.Mat();
+          cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+          cnt.delete();
+          if (approx.rows === 4 && area > maxArea) {
+            maxArea = area;
+            bestApprox?.delete();
+            bestApprox = approx;
+          } else { approx.delete(); }
+        }
+
+        if (bestApprox) {
+          onStatus?.('📐 Blatt erkannt – Perspektive wird korrigiert…');
+          const pts = [];
+          for (let i = 0; i < 4; i++)
+            pts.push({ x: bestApprox.data32S[i * 2], y: bestApprox.data32S[i * 2 + 1] });
+          bestApprox.delete();
+
+          const [tl, tr, br, bl] = sortCorners(pts);
+          const w = Math.round(Math.max(ptDist(tl, tr), ptDist(bl, br)));
+          const h = Math.round(Math.max(ptDist(tl, bl), ptDist(tr, br)));
+
+          const srcM = T(cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]));
+          const dstM = T(cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]));
+          const M    = T(cv.getPerspectiveTransform(srcM, dstM));
+          const warped = T(new cv.Mat());
+          cv.warpPerspective(src, warped, M, new cv.Size(w, h));
+
+          const outC = document.createElement('canvas');
+          outC.width = w; outC.height = h;
+          cv.imshow(outC, warped);
+          cleanup();
+          outC.toBlob(b => resolve(b || blob), 'image/png');
+        } else {
+          onStatus?.('⚠️ Blatt nicht klar erkannt – direkt verarbeiten…');
+          cleanup();
+          resolve(blob);
+        }
+      } catch (e) {
+        cleanup();
+        console.warn('OpenCV perspective:', e);
+        resolve(blob);
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
   });
 }
 
@@ -1452,45 +2030,91 @@ function parseOCRText(text) {
 }
 
 function renderOCRResult(parsed, areaEl, ocrSuccess = true) {
-  // Support both old plain-object format and new {scores, detectedPids} format
-  const scores       = (parsed && 'scores' in parsed) ? parsed.scores : parsed;
+  const scores       = (parsed && 'scores' in parsed) ? parsed.scores : (parsed || {});
   const detectedPids = (parsed && 'detectedPids' in parsed) ? parsed.detectedPids : [];
 
-  // Auto-add newly detected players that weren't pre-selected
+  // Auto-add detected players that weren't pre-selected
   const added = [];
   detectedPids.forEach(pid => {
     if (!S.ng.pids.includes(pid)) { S.ng.pids.push(pid); added.push(pid); }
   });
-
-  // If still no players at all, fall back to all registered players for manual entry
   if (!S.ng.pids.length) S.ng.pids = Object.keys(S.players);
 
-  const detectedCount = S.ng.pids.filter(pid => scores[pid] !== undefined).length;
-  const autoAddedNote = added.length
-    ? `<p style="color:var(--cy);font-size:.76rem;margin-bottom:.4rem;text-align:center">✨ ${added.map(p => S.players[p]?.name).filter(Boolean).join(', ')} automatisch hinzugefügt</p>`
+  const total     = S.ng.pids.length;
+  const detected  = S.ng.pids.filter(pid => scores[pid] !== undefined).length;
+  const allGood   = ocrSuccess && detected === total && total > 0;
+  const partGood  = ocrSuccess && detected > 0 && detected < total;
+
+  // ── Status banner ──
+  const statusIcon  = allGood ? '✅' : partGood ? '⚠️' : '📝';
+  const statusColor = allGood ? 'var(--gr)' : partGood ? '#f59e0b' : 'var(--tx2)';
+  const statusText  = !ocrSuccess
+    ? 'Manuell eingeben – Werte prüfen und bestätigen'
+    : allGood
+    ? `Alle ${total} Spieler erkannt – bitte trotzdem prüfen`
+    : partGood
+    ? `${detected} von ${total} erkannt – fehlende manuell ergänzen`
+    : 'Keine Werte erkannt – manuell eingeben';
+
+  const addedNote = added.length
+    ? `<div class="ocr-added-note">✨ ${added.map(p => S.players[p]?.name).filter(Boolean).join(', ')} automatisch hinzugefügt</div>`
     : '';
-  const statusMsg = ocrSuccess
-    ? `${autoAddedNote}<p style="color:var(--gr);font-size:.82rem;margin:.5rem 0;text-align:center">✅ OCR fertig – ${detectedCount}/${S.ng.pids.length} Spieler erkannt. Bitte prüfen:</p>`
-    : `<p style="color:var(--tx2);font-size:.82rem;margin:.75rem 0;text-align:center">📝 Punkte manuell eingeben:</p>`;
+
+  // ── Player review cards ──
+  const cards = S.ng.pids.map(pid => {
+    const p      = S.players[pid];
+    const val    = scores[pid];
+    const found  = val !== undefined;
+    // Plausibility check: Wizard totals are usually between -200 and +500
+    const insane = found && (val < -300 || val > 600);
+    const borderColor = insane
+      ? 'rgba(239,68,68,.5)'
+      : found ? 'rgba(16,185,129,.35)' : 'rgba(255,255,255,.08)';
+    const badge = found
+      ? insane
+        ? `<span class="ocr-badge ocr-badge-r">⚠ prüfen</span>`
+        : `<span class="ocr-badge ocr-badge-g">✓ erkannt</span>`
+      : `<span class="ocr-badge ocr-badge-x">? manuell</span>`;
+
+    return `<div class="ocr-card" style="border-color:${borderColor}" data-pid="${pid}">
+      <div class="ocr-card-left">
+        <span class="ocr-card-ava">${p?.emoji || '🧙'}</span>
+        <div class="ocr-card-info">
+          <div class="ocr-card-name">${esc(p?.name || '?')}</div>
+          ${badge}
+        </div>
+      </div>
+      <div class="ocr-card-right">
+        <input type="number" class="ocr-score-inp scr-inp" data-pid="${pid}"
+          placeholder="0" value="${found ? val : ''}"
+          style="${insane ? 'color:#ef4444;' : ''}">
+        <span class="ocr-unit">Pkt</span>
+      </div>
+    </div>`;
+  }).join('');
 
   const div = document.createElement('div');
+  div.className = 'ocr-review-wrap';
   div.innerHTML = `
-    ${statusMsg}
-    <div class="scr-form">
-      ${S.ng.pids.map(pid => {
-        const p = S.players[pid];
-        const found = scores[pid] !== undefined;
-        return `<div class="scr-row" style="${found ? 'border-color:rgba(16,185,129,.35)' : ''}">
-          <div class="scr-ava">${p?.emoji||'🧙'}</div>
-          <div class="scr-name">${esc(p?.name||'?')}${found ? '<span style="font-size:.62rem;color:var(--gr);margin-left:.4rem">✓ erkannt</span>' : ''}</div>
-          <input type="number" class="scr-inp" data-pid="${pid}" placeholder="0" value="${scores[pid] ?? ''}">
-        </div>`;
-      }).join('')}
+    <div class="ocr-status-line" style="color:${statusColor}">
+      <span>${statusIcon}</span>
+      <span>${statusText}</span>
     </div>
+    ${addedNote}
+    <div class="ocr-cards">${cards}</div>
     <div class="step-acts" style="margin-top:1rem">
       <button class="btn-pri full" id="btn-save-ocr">💾 Spiel speichern</button>
     </div>`;
   areaEl.appendChild(div);
+
+  // Live validation: highlight if value changes to insane range
+  div.querySelectorAll('.ocr-score-inp').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const v = parseInt(inp.value);
+      inp.style.color = (!isNaN(v) && (v < -300 || v > 600)) ? '#ef4444' : '';
+    });
+  });
+
   document.getElementById('btn-save-ocr')?.addEventListener('click', submitScores);
 }
 
@@ -1846,6 +2470,7 @@ function fmtDate(ts) {
    EVENTS
 ═══════════════════════════════════════════════ */
 function initEvents() {
+  initScannerEvents();
 
   // Tabs
   document.querySelectorAll('.wz-tab').forEach(btn => {

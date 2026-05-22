@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wizard Spielzettel – Drucken</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Arial', sans-serif;
+    background: #f0f0f0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px; gap: 16px;
+  }
+
+  /* ── Print controls (hidden on print) ── */
+  .controls {
+    background: white; border-radius: 12px; padding: 16px 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.12); display: flex;
+    align-items: center; gap: 16px; flex-wrap: wrap; width: 210mm;
+  }
+  .controls label { font-size: 14px; color: #444; display: flex; align-items: center; gap: 8px; }
+  .controls input[type=number] {
+    width: 52px; border: 1px solid #ccc; border-radius: 6px; padding: 4px 6px;
+    font-size: 14px; text-align: center;
+  }
+  .controls button {
+    background: #7c3aed; color: white; border: none; border-radius: 8px;
+    padding: 9px 20px; font-size: 14px; cursor: pointer; font-weight: 600;
+    margin-left: auto;
+  }
+  .controls button:hover { background: #6d28d9; }
+
+  /* ── Sheet ── */
+  .sheet {
+    width: 210mm; min-height: 297mm;
+    background: white; position: relative;
+    padding: 18mm 16mm 18mm;
+    box-shadow: 0 4px 24px rgba(0,0,0,.18);
+  }
+
+  /* Corner registration marks – OpenCV detects these reliably */
+  .cm {
+    position: absolute; width: 16mm; height: 16mm;
+  }
+  .cm.tl { top: 4mm;  left: 4mm;  }
+  .cm.tr { top: 4mm;  right: 4mm; }
+  .cm.bl { bottom: 4mm; left: 4mm;  }
+  .cm.br { bottom: 4mm; right: 4mm; }
+  /* Outer black square */
+  .cm::before {
+    content: ''; position: absolute; inset: 0;
+    background: black;
+  }
+  /* White ring */
+  .cm::after {
+    content: ''; position: absolute; inset: 3mm;
+    background: white;
+  }
+  /* Inner black square (drawn as a child element) */
+  .cm span {
+    position: absolute; inset: 5.5mm;
+    background: black; z-index: 1;
+  }
+
+  /* ── Header ── */
+  .sheet-title {
+    text-align: center; margin-bottom: 6mm;
+  }
+  .sheet-title h1 {
+    font-size: 28px; font-weight: 900; letter-spacing: 6px;
+    color: #1a1a2e;
+  }
+  .sheet-title p {
+    font-size: 10px; color: #888; margin-top: 1mm; letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Player name boxes ── */
+  .name-row {
+    display: grid;
+    grid-template-columns: 20mm repeat(var(--cols, 4), 1fr);
+    gap: 0; margin-bottom: 4mm;
+  }
+  .name-cell {
+    border: 2px solid #222; text-align: center; padding: 3mm 2mm;
+    font-size: 11px; color: #555; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    background: #f8f8f8;
+  }
+  .name-cell.label {
+    background: #1a1a2e; color: white; font-size: 9px; letter-spacing: .5px;
+  }
+  .name-input-box {
+    min-height: 10mm;
+    border: 2px solid #222; border-top: none;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #111;
+  }
+
+  /* ── Score table ── */
+  .score-table {
+    width: 100%; border-collapse: collapse;
+  }
+  .score-table th {
+    background: #1a1a2e; color: white;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; padding: 2.5mm 1mm;
+    border: 1.5px solid #222; text-align: center;
+  }
+  .score-table td {
+    border: 1.5px solid #bbb;
+    text-align: center; vertical-align: middle;
+    height: 8mm; font-size: 14px; color: #111;
+  }
+  .score-table td.rn {
+    background: #f0f0f4; font-size: 11px; font-weight: 700;
+    color: #444; width: 20mm;
+  }
+  .score-table tr:nth-child(even) td { background: #fafafa; }
+  .score-table tr:nth-child(even) td.rn { background: #eaeaee; }
+
+  /* ── Total row ── */
+  .total-row td {
+    background: #1a1a2e !important;
+    color: white !important;
+    height: 14mm !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+    border: 2px solid #000 !important;
+    letter-spacing: 1px;
+  }
+  .total-row td.rn {
+    font-size: 11px !important;
+    letter-spacing: 2px !important;
+  }
+
+  /* ── Footer ── */
+  .sheet-footer {
+    margin-top: 5mm; text-align: center;
+    font-size: 9px; color: #aaa; letter-spacing: 1px;
+  }
+
+  /* ── Print styles ── */
+  @media print {
+    body { background: white; padding: 0; }
+    .controls { display: none; }
+    .sheet { box-shadow: none; margin: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <label>Spieler:
+    <input type="number" id="inp-cols" min="2" max="6" value="4">
+  </label>
+  <label>Runden:
+    <input type="number" id="inp-rows" min="5" max="20" value="15">
+  </label>
+  <button onclick="buildSheet()">↻ Aktualisieren</button>
+  <button onclick="window.print()">🖨 Drucken</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <!-- built by JS -->
+</div>
+
+<script>
+function buildSheet() {
+  const cols = Math.max(2, Math.min(6, parseInt(document.getElementById('inp-cols').value) || 4));
+  const rows = Math.max(5, Math.min(20, parseInt(document.getElementById('inp-rows').value) || 15));
+  document.documentElement.style.setProperty('--cols', cols);
+
+  const sheet = document.getElementById('sheet');
+
+  // Corner marks
+  const corners = ['tl','tr','bl','br'].map(c =>
+    `<div class="cm ${c}"><span></span></div>`
+  ).join('');
+
+  // Player name boxes
+  const nameBoxes = `
+    <div class="name-row" style="--cols:${cols}">
+      <div class="name-cell label">Spieler</div>
+      ${Array.from({length: cols}, (_, i) => `<div class="name-cell">Spieler ${i+1}</div>`).join('')}
+    </div>
+    <div class="name-row" style="--cols:${cols}">
+      <div class="name-input-box" style="border:2px solid #222;background:#f8f8f8;font-size:10px;color:#888">Name</div>
+      ${Array.from({length: cols}, () => `<div class="name-input-box"></div>`).join('')}
+    </div>`;
+
+  // Score table header
+  const th = Array.from({length: cols}, (_, i) =>
+    `<th style="width:${Math.floor(130/cols)}mm">Sp. ${i+1}</th>`
+  ).join('');
+
+  // Round rows
+  const trs = Array.from({length: rows}, (_, i) =>
+    `<tr>
+      <td class="rn">${i + 1}</td>
+      ${Array.from({length: cols}, () => '<td></td>').join('')}
+    </tr>`
+  ).join('');
+
+  // Total row
+  const totalRow = `
+    <tr class="total-row">
+      <td class="rn">TOTAL</td>
+      ${Array.from({length: cols}, () => '<td></td>').join('')}
+    </tr>`;
+
+  sheet.innerHTML = `
+    ${corners}
+    <div class="sheet-title">
+      <h1>WIZARD</h1>
+      <p>Offizieller Spielzettel · OCR-optimiert</p>
+    </div>
+    ${nameBoxes}
+    <table class="score-table">
+      <thead>
+        <tr>
+          <th style="width:20mm">Runde</th>
+          ${th}
+        </tr>
+      </thead>
+      <tbody>
+        ${trs}
+        ${totalRow}
+      </tbody>
+    </table>
+    <div class="sheet-footer">
+      Wizard-Punktezettel · Scan mit Wizard Arena App · wizard-sheet.html
+    </div>`;
+}
+
+buildSheet();
+</script>
+</body>
+</html>
