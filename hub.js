@@ -420,6 +420,32 @@ function bindEvents() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   WIZARD ARENA LIVE STATS
+═══════════════════════════════════════════════════════ */
+async function loadWizardStats() {
+  try {
+    const [pSnap, gSnap] = await Promise.all([
+      getDocs(collection(db, 'wizard_players')),
+      getDocs(collection(db, 'wizard_games')),
+    ]);
+    const players = pSnap.docs.map(d => d.data());
+    const games   = gSnap.size;
+    const top     = players.reduce((m, p) => Math.max(m, p.stats?.highScore || 0), 0);
+
+    setText('wz-games',   games);
+    setText('wz-players', players.length);
+    setText('wz-topscore', top || '–');
+
+    if (games > 0) {
+      const topPlayer = players.sort((a,b) => (b.mmr||1000)-(a.mmr||1000))[0];
+      setText('wizard-last', topPlayer ? `👑 ${topPlayer.name} führt mit ${topPlayer.mmr||1000} MMR` : 'Rankings · Achievements · Foto-Scan');
+      setText('wizard-level-badge', `${games} Spiele`);
+      document.getElementById('wizard-level-badge').style.cssText = 'background:rgba(245,158,11,.2);color:#fbbf24';
+    }
+  } catch (_) {}
+}
+
+/* ═══════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════ */
 async function init() {
@@ -458,6 +484,7 @@ async function init() {
       /* 4. Load cloud data and re-render */
       await loadCloudStates(currentUid);
       render();
+      loadWizardStats();
 
       /* 6. Load leaderboard mini (needs uid) */
       loadHubLeaderboard(currentUid);

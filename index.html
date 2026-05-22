@@ -90,6 +90,9 @@
     .world-card.typing-world:hover { border-color: var(--accent); box-shadow: 0 12px 40px var(--accent-glow); }
     .world-card.chess-world  { border-top: 3px solid var(--green); }
     .world-card.chess-world:hover  { border-color: var(--green);  box-shadow: 0 12px 40px rgba(34,211,160,.25); }
+    .world-card.wizard-world { border-top: 3px solid #7c3aed; }
+    .world-card.wizard-world:hover { border-color: #7c3aed; box-shadow: 0 12px 40px rgba(124,58,237,.35); }
+    .world-card.wizard-world::before { background: linear-gradient(135deg,#7c3aed,#f59e0b); }
 
     .world-card::before {
       content: ''; position: absolute; top: -60px; right: -60px;
@@ -319,6 +322,25 @@
           </div>
           <div class="world-last" id="chess-last">Noch nicht gestartet</div>
           <a href="chess.html" class="world-btn" id="chess-cta">♟ Schach starten ▶</a>
+        </div>
+
+        <!-- Wizard Arena Card -->
+        <div class="world-card wizard-world" id="card-wizard" onclick="location.href='wizard.html'" style="cursor:pointer">
+          <div class="world-header">
+            <span class="world-icon">🧙</span>
+            <div>
+              <div class="world-title">Wizard Arena</div>
+              <div class="world-subtitle">Competitive Card Game Tracker</div>
+            </div>
+            <span class="world-level-badge" id="wizard-level-badge" style="background:rgba(245,158,11,.18);color:#fbbf24">Neu ✨</span>
+          </div>
+          <div class="world-stats" id="wizard-stats">
+            <div class="world-stat"><span class="world-stat-val" id="wz-games">–</span><span class="world-stat-lbl">Spiele</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="wz-players">–</span><span class="world-stat-lbl">Spieler</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="wz-topscore">–</span><span class="world-stat-lbl">Top-Score</span></div>
+          </div>
+          <div class="world-last" id="wizard-last">Rankings · Achievements · Foto-Scan</div>
+          <a href="wizard.html" class="world-btn" style="background:linear-gradient(135deg,#7c3aed,#f59e0b);color:#fff;box-shadow:0 4px 16px rgba(124,58,237,.4)">🧙 Wizard Arena ▶</a>
         </div>
 
       </div>
