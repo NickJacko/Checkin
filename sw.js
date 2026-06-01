@@ -6,7 +6,7 @@
  *   • Offline-Fallback → index.html
  */
 
-const CACHE_NAME  = 'learnhub-v1';
+const CACHE_NAME  = 'learnhub-v2';
 const CACHE_URLS  = [
   '/',
   '/index.html',
@@ -15,6 +15,7 @@ const CACHE_URLS  = [
   '/style.css',
   '/app.js',
   '/chess.js',
+  '/chess-engine.js',
   '/hub.js',
   '/manifest.json',
   'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap',

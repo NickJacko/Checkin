@@ -544,7 +544,7 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
 .chess-coords-top,.chess-coords-bottom{display:flex;padding:0 24px}
 .chess-coords-left,.chess-coords-right{display:flex;flex-direction:column;justify-content:space-around;width:24px;font-size:.7rem;font-weight:700;color:var(--text-3);text-align:center;height:var(--board-size,400px)}
 .chess-coord{flex:1;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--text-3)}
-.chess-board{display:grid;grid-template-columns:repeat(8,1fr);width:var(--board-size,400px);height:var(--board-size,400px);border:2px solid var(--border-2);border-radius:4px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.chess-board{display:grid;grid-template-columns:repeat(8,1fr);width:var(--board-size,400px);height:var(--board-size,400px);border:3px solid var(--border-2);border-radius:4px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.3)}
 .chess-cell{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:background var(--t-fast)}
 /* ── BOARD THEME VARIABLES (default = Classic) ── */
 :root{
@@ -574,8 +574,8 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
 .chess-cell.light{background:var(--sq-light)}
 .chess-cell.dark{background:var(--sq-dark)}
 .chess-cell.selected{background:#7fc97f!important;box-shadow:inset 0 0 0 3px #3d8b3d}
-.chess-cell.legal-move::after{content:'';position:absolute;width:30%;height:30%;border-radius:50%;background:rgba(0,0,0,.25);pointer-events:none;z-index:1}
-.chess-cell.legal-capture{box-shadow:inset 0 0 0 4px rgba(0,0,0,.35)!important}
+.chess-cell.legal-move::after{content:'';position:absolute;width:32%;height:32%;border-radius:50%;background:rgba(0,0,0,.22);pointer-events:none;z-index:3}
+.chess-cell.legal-capture::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 5px rgba(0,0,0,.3);pointer-events:none;z-index:3}
 .chess-cell.last-move{background:#cdd16f!important}
 [data-theme="dark"] .chess-cell.last-move{background:#8e9c3a!important}
 .chess-cell.in-check{background:#e74c3c!important;animation:check-pulse .6s ease-in-out infinite alternate}
@@ -584,12 +584,16 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;hei
 .chess-cell.wrong-move{animation:shake-cell .3s ease}
 @keyframes shake-cell{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 
-.chess-piece{font-size:calc(var(--board-size,400px) / 10);line-height:1;z-index:2;transition:transform var(--t-fast);pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
-.chess-cell:hover:not(.selected) .chess-piece{transform:scale(1.08)}
+.chess-piece{display:flex;align-items:center;justify-content:center;width:100%;height:100%;z-index:2;pointer-events:none}
+.chess-piece .psvg{width:82%;height:82%;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));transition:transform .12s ease}
+.chess-cell:hover:not(.selected) .chess-piece .psvg{transform:scale(1.12)}
+.chess-cell.selected .chess-piece .psvg{transform:scale(1.06)}
 
 /* ── CAPTURED PIECES ── */
-.captured-row{display:flex;flex-wrap:wrap;gap:2px;min-height:28px;align-items:center;font-size:1.1rem;padding:.25rem .5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.captured-row{display:flex;flex-wrap:wrap;gap:2px;min-height:28px;align-items:center;padding:.25rem .5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)}
 .captured-label{font-size:.65rem;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-right:.35rem}
+.cap-piece{display:inline-flex;width:20px;height:20px;vertical-align:middle}
+.cap-piece .psvg{width:100%;height:100%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 
 /* ── MOVE LIST ── */
 .move-list-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;min-width:160px;max-width:200px;max-height:var(--board-size,400px);overflow-y:auto}

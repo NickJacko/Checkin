@@ -31,6 +31,55 @@ import {
   evaluateBoard, aiMove, minimaxAB, getBestMoveAndEval,
 } from './chess-engine.js';
 
+/* ── SVG CHESS PIECES ─────────────────────────────────────────────── */
+function getPieceSVG(type, isWhite) {
+  const F  = isWhite ? '#f5f0e8' : '#282018';
+  const S  = isWhite ? '#3a2810' : '#d4b880';
+  const F2 = isWhite ? '#ccc0a8' : '#484030';
+  const wrap = (b) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45" class="psvg">` +
+    `<g fill="${F}" stroke="${S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${b}</g></svg>`;
+  switch (type) {
+    case PAWN: return wrap(
+      `<circle cx="22.5" cy="10.5" r="5.5"/>` +
+      `<path d="M14.5,39.5h16l-1.5-5.5h-13z"/>` +
+      `<path d="M15.5,34c0-7,2.5-11,3.5-13s1.5-3.5,3.5-3.5,2.5,1.5,3.5,3.5,3.5,6,3.5,13"/>`);
+    case ROOK: return wrap(
+      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
+      `<rect x="11.5" y="14" width="22" height="22.5" rx="1"/>` +
+      `<path d="M10.5,14v-5.5h5v2.5h5v-2.5h5v2.5h5v-2.5h5v5.5z"/>` +
+      `<line x1="11.5" y1="26" x2="33.5" y2="26" stroke="${F2}" stroke-width="1"/>`);
+    case KNIGHT: return wrap(
+      `<path d="M22,10c10.5,1,16.5,8,16,29H15c0-9,9-7,8-21"/>` +
+      `<path d="M24,18c.38,2.91-5.55,7.37-8,9-3,2-2.82,4.34-5,4-1.042-.94,1.41-3.04,0-3-1,0,.19,1.23-1,2-1,0-4.003,1-4-4,0-2,6-12,6-12s1.89-1.9,2-3.5c-.73-.994-.5-2-.5-3,1-1,3,2.5,3,2.5h2s.78-1.992,2.5-3c1,0,1,3,1,3"/>` +
+      `<circle cx="19" cy="12" r="1.5" fill="${F2}" stroke="${F2}"/>` +
+      `<path d="M14,17l2,2c0,0,.8-2-.5-2.5" fill="${F2}" stroke="${F2}" stroke-width="0.5"/>`);
+    case BISHOP: return wrap(
+      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
+      `<path d="M11,36c0-4,3-6.5,11.5-6.5S34,32,34,36"/>` +
+      `<path d="M15.5,29.5c0-8,3-12,7-17.5,4,5.5,7,9.5,7,17.5"/>` +
+      `<circle cx="22.5" cy="10" r="3.5"/>` +
+      `<path d="M20.5,10h4M22.5,8v4" stroke="${F2}" stroke-width="1"/>` +
+      `<path d="M19.5,22c0,0,3,2,6,0" fill="none" stroke="${F2}" stroke-width="1"/>`);
+    case QUEEN: return wrap(
+      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
+      `<path d="M9.5,36c0-4,1.5-6,3-7V24.5c0-3.5,2.5-6,2.5-10.5l8,8,8-8c0,4.5,2.5,7,2.5,10.5V29c1.5,1,3,3,3,7"/>` +
+      `<circle cx="6" cy="12.5" r="3"/>` +
+      `<circle cx="22.5" cy="7.5" r="3"/>` +
+      `<circle cx="39" cy="12.5" r="3"/>` +
+      `<circle cx="13.5" cy="9.5" r="2.5"/>` +
+      `<circle cx="31.5" cy="9.5" r="2.5"/>` +
+      `<path d="M9.5,34h26" stroke="${F2}" stroke-width="1"/>`);
+    case KING: return wrap(
+      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
+      `<path d="M11.5,36c0-4,2-6.5,11-6.5s11,2.5,11,6.5"/>` +
+      `<path d="M12,29.5c0-4.5,2.5-7,10.5-7s10.5,2.5,10.5,7"/>` +
+      `<path d="M14,29.5c0-8,2.5-15.5,8.5-18.5,6,3,8.5,10.5,8.5,18.5"/>` +
+      `<path d="M20.5,8v8M17,12h11" stroke-width="2" stroke-linecap="round"/>`);
+    default: return '';
+  }
+}
+
 const FIREBASE_CONFIG = {
   apiKey:            'AIzaSyCa8VcpRe94gevcyQUF_Zc-e-UNRCowDSc',
   authDomain:        'checkin-9f731.firebaseapp.com',
@@ -321,7 +370,8 @@ function loadChessState() {
   try {
     const raw = localStorage.getItem(CHESS_STORAGE_KEY);
     CS = raw ? { ...DEFAULT_CHESS_STATE, ...JSON.parse(raw) } : JSON.parse(JSON.stringify(DEFAULT_CHESS_STATE));
-    CS.settings = { ...DEFAULT_CHESS_STATE.settings, ...(CS.settings || {}) };
+    CS.settings       = { ...DEFAULT_CHESS_STATE.settings,       ...(CS.settings       || {}) };
+    CS.dailyChallenge = { ...DEFAULT_CHESS_STATE.dailyChallenge, ...(CS.dailyChallenge || {}) };
   } catch (_) {
     CS = JSON.parse(JSON.stringify(DEFAULT_CHESS_STATE));
   }
@@ -557,7 +607,7 @@ function renderBoard(boardId, gs, selected, legalTargets, lastMove, inCheckColor
     if (piece !== EMPTY) {
       const span = document.createElement('span');
       span.className = 'chess-piece';
-      span.textContent = PIECE_UNICODE[piece>0?WHITE:BLACK][Math.abs(piece)];
+      span.innerHTML = getPieceSVG(Math.abs(piece), piece > 0);
       cell.appendChild(span);
     }
 
@@ -581,6 +631,36 @@ function renderBoard(boardId, gs, selected, legalTargets, lastMove, inCheckColor
       if (kPos && kPos.r===r && kPos.f===f) cell.classList.add('in-check');
     }
   });
+}
+
+function animatePieceMove(boardId, fromR, fromF, toR, toF, onDone) {
+  const grid = document.getElementById('board-grid-' + boardId);
+  if (!grid) { onDone?.(); return; }
+  const fromCell = grid.querySelector(`[data-r="${fromR}"][data-f="${fromF}"]`);
+  const toCell   = grid.querySelector(`[data-r="${toR}"][data-f="${toF}"]`);
+  const pieceEl  = fromCell?.querySelector('.chess-piece');
+  if (!pieceEl || !toCell) { onDone?.(); return; }
+
+  const fRect = fromCell.getBoundingClientRect();
+  const tRect = toCell.getBoundingClientRect();
+  const ghost = pieceEl.cloneNode(true);
+  Object.assign(ghost.style, {
+    position:'fixed', left:fRect.left+'px', top:fRect.top+'px',
+    width:fRect.width+'px', height:fRect.height+'px',
+    margin:'0', zIndex:'9999', pointerEvents:'none',
+    transition:'transform 0.18s cubic-bezier(.25,.46,.45,.94)',
+  });
+  pieceEl.style.opacity = '0';
+  document.body.appendChild(ghost);
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    ghost.style.transform = `translate(${tRect.left-fRect.left}px,${tRect.top-fRect.top}px)`;
+  }));
+
+  let done = false;
+  const finish = () => { if (done) return; done=true; ghost.remove(); pieceEl.style.opacity=''; onDone?.(); };
+  ghost.addEventListener('transitionend', finish, { once:true });
+  setTimeout(finish, 350);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -881,45 +961,49 @@ function handlePuzzleClick(r, f) {
     puzzleSelected = null;
 
     if (from.r === stepFrom.r && from.f === stepFrom.f && r === stepTo.r && f === stepTo.f) {
-      // Correct step
-      puzzleGS = applyMove(puzzleGS, from.r, from.f, r, f);
-      puzzleSolutionStep++;
-      renderBoard('puzzle', puzzleGS, null, [], {fromR:from.r,fromF:from.f,toR:r,toF:f}, undefined);
+      // Correct step — animate then apply
+      animatePieceMove('puzzle', from.r, from.f, r, f, () => {
+        puzzleGS = applyMove(puzzleGS, from.r, from.f, r, f);
+        puzzleSolutionStep++;
+        if (CS.settings.sound) SOUNDS.move();
+        renderBoard('puzzle', puzzleGS, null, [], {fromR:from.r,fromF:from.f,toR:r,toF:f}, undefined);
 
-      if (puzzleSolutionStep >= puz.solution.length) {
-        // Puzzle solved!
-        puzzleSolved = true;
-        showPuzzleFeedback('correct', '🎉 Richtig! Ausgezeichnete Taktik!');
-        markHighlight('puzzle', stepTo.r, stepTo.f, 'solution-move');
-        if (!CS.solvedPuzzles[puz.id]) {
-          CS.solvedPuzzles[puz.id] = { date: new Date().toISOString(), mistakes: puzzleMistakeCount, hintUsed: puzzleHintCount > 0 };
-          const bonus = puzzleHintCount === 0 ? puz.xp : Math.floor(puz.xp * 0.6);
-          awardXP(bonus);
-          updateStreak();
-          checkAllAchievements();
-          if (puz.type === 'mate1' || puz.type === 'mate2') checkAndUnlock('first_mate');
-          if (puzzleHintCount === 0 && puzzleMistakeCount === 0) checkAndUnlock('perfect_puzzle');
-          if (puz.type === 'mate2') checkAndUnlock('mate_in_2');
-          progressDailyChallenge('puzzles');
-        }
-        const exp = document.getElementById('puzzle-explanation');
-        if (exp) { exp.textContent = puz.explanation; exp.style.display = 'block'; }
-      } else {
-        // More steps – play opponent response if solution has paired moves
-        showPuzzleFeedback('correct', '✓ Guter Zug! Weiter…');
-        // Auto-play opponent if next step exists and it's opponent's turn
-        setTimeout(() => {
-          const nextStep = puz.solution[puzzleSolutionStep];
-          if (nextStep && (puzzleGS.turn !== puz.sideToMove)) {
-            const nFrom = algebraicToCoord(nextStep.from);
-            const nTo   = algebraicToCoord(nextStep.to);
-            puzzleGS = applyMove(puzzleGS, nFrom.r, nFrom.f, nTo.r, nTo.f);
-            puzzleSolutionStep++;
-            renderBoard('puzzle', puzzleGS, null, [], {fromR:nFrom.r,fromF:nFrom.f,toR:nTo.r,toF:nTo.f}, undefined);
-            hidePuzzleFeedback();
+        if (puzzleSolutionStep >= puz.solution.length) {
+          puzzleSolved = true;
+          if (CS.settings.sound) setTimeout(() => SOUNDS.correct(), 80);
+          showPuzzleFeedback('correct', '🎉 Richtig! Ausgezeichnete Taktik!');
+          markHighlight('puzzle', stepTo.r, stepTo.f, 'solution-move');
+          if (!CS.solvedPuzzles[puz.id]) {
+            CS.solvedPuzzles[puz.id] = { date: new Date().toISOString(), mistakes: puzzleMistakeCount, hintUsed: puzzleHintCount > 0 };
+            const bonus = puzzleHintCount === 0 ? puz.xp : Math.floor(puz.xp * 0.6);
+            awardXP(bonus);
+            updateStreak();
+            checkAllAchievements();
+            if (puz.type === 'mate1' || puz.type === 'mate2') checkAndUnlock('first_mate');
+            if (puzzleHintCount === 0 && puzzleMistakeCount === 0) checkAndUnlock('perfect_puzzle');
+            if (puz.type === 'mate2') checkAndUnlock('mate_in_2');
+            progressDailyChallenge('puzzles');
           }
-        }, 600);
-      }
+          const exp = document.getElementById('puzzle-explanation');
+          if (exp) { exp.textContent = puz.explanation; exp.style.display = 'block'; }
+        } else {
+          showPuzzleFeedback('correct', '✓ Guter Zug! Weiter…');
+          setTimeout(() => {
+            const nextStep = puz.solution[puzzleSolutionStep];
+            if (nextStep && (puzzleGS.turn !== puz.sideToMove)) {
+              const nFrom = algebraicToCoord(nextStep.from);
+              const nTo   = algebraicToCoord(nextStep.to);
+              animatePieceMove('puzzle', nFrom.r, nFrom.f, nTo.r, nTo.f, () => {
+                puzzleGS = applyMove(puzzleGS, nFrom.r, nFrom.f, nTo.r, nTo.f);
+                puzzleSolutionStep++;
+                if (CS.settings.sound) SOUNDS.move();
+                renderBoard('puzzle', puzzleGS, null, [], {fromR:nFrom.r,fromF:nFrom.f,toR:nTo.r,toF:nTo.f}, undefined);
+                hidePuzzleFeedback();
+              });
+            }
+          }, 450);
+        }
+      });
     } else {
       // Wrong move
       puzzleMistakeCount++;
@@ -1046,50 +1130,57 @@ function handleFpClick(r, f) {
 }
 
 function executeMove(fromR, fromF, toR, toF, promoType=QUEEN) {
-  const piece = fpGS.board[fromR][fromF];
+  const piece    = fpGS.board[fromR][fromF];
   const captured = fpGS.board[toR][toF];
-  fpHistory.push(cloneGameState(fpGS));
+  const isCastle = Math.abs(piece) === KING && Math.abs(toF - fromF) === 2;
 
-  const san = buildSAN(fpGS, fromR, fromF, toR, toF, promoType);
-  fpGS    = applyMove(fpGS, fromR, fromF, toR, toF, promoType);
-  fpLastMove = {fromR, fromF, toR, toF};
-  fpSelected = null;
+  animatePieceMove('fp', fromR, fromF, toR, toF, () => {
+    fpHistory.push(cloneGameState(fpGS));
+    const san = buildSAN(fpGS, fromR, fromF, toR, toF, promoType);
+    fpGS = applyMove(fpGS, fromR, fromF, toR, toF, promoType);
+    fpLastMove = {fromR, fromF, toR, toF};
+    fpSelected = null;
+    fpMoveLog.push({ color: piece > 0 ? WHITE : BLACK, san, fromR, fromF, toR, toF, promo: promoType });
 
-  fpMoveLog.push({ color: piece > 0 ? WHITE : BLACK, san, fromR, fromF, toR, toF, promo: promoType });
-
-  updateFpBoard();
-  updateFpStatus();
-  updateFpMoveList();
-  updateCapturedPieces();
-
-  // Check game end
-  if (isCheckmate(fpGS)) {
-    const winner = fpGS.turn === WHITE ? 'Schwarz' : 'Weiß';
-    fpGameOver = true;
-    CS.gamesPlayed++;
-    if ((fpGS.turn === BLACK && fpGameMode === 'pvp') ||
-        (fpGS.turn !== fpPlayerColor && fpGameMode === 'ai')) {
-      CS.gamesWon++;
-      checkAndUnlock('first_win');
+    if (CS.settings.sound) {
+      if (isCastle) SOUNDS.castle();
+      else if (captured !== EMPTY) SOUNDS.capture();
+      else SOUNDS.move();
+      if (isInCheck(fpGS, fpGS.turn)) setTimeout(() => SOUNDS.check(), 80);
     }
-    checkAllAchievements();
-    saveChessState();
-    progressDailyChallenge('game');
-    setTimeout(() => showGameOver('♔', winner + ' gewinnt!', 'Schachmatt – die Partie ist entschieden.'), 400);
-    return;
-  }
-  if (isStalemate(fpGS)) {
-    fpGameOver = true;
-    CS.gamesPlayed++;
-    saveChessState();
-    setTimeout(() => showGameOver('🤝', 'Patt!', 'Keine legalen Züge – unentschieden.'), 400);
-    return;
-  }
 
-  // AI turn
-  if (fpGameMode === 'ai' && fpGS.turn !== fpPlayerColor && !fpGameOver) {
-    setTimeout(doAIMove, 400);
-  }
+    updateFpBoard();
+    updateFpStatus();
+    updateFpMoveList();
+    updateCapturedPieces();
+
+    if (isCheckmate(fpGS)) {
+      const winner = fpGS.turn === WHITE ? 'Schwarz' : 'Weiß';
+      fpGameOver = true;
+      CS.gamesPlayed++;
+      if ((fpGS.turn === BLACK && fpGameMode === 'pvp') ||
+          (fpGS.turn !== fpPlayerColor && fpGameMode === 'ai')) {
+        CS.gamesWon++;
+        checkAndUnlock('first_win');
+      }
+      checkAllAchievements();
+      saveChessState();
+      progressDailyChallenge('game');
+      setTimeout(() => showGameOver('♔', winner + ' gewinnt!', 'Schachmatt – die Partie ist entschieden.'), 400);
+      return;
+    }
+    if (isStalemate(fpGS)) {
+      fpGameOver = true;
+      CS.gamesPlayed++;
+      saveChessState();
+      setTimeout(() => showGameOver('🤝', 'Patt!', 'Keine legalen Züge – unentschieden.'), 400);
+      return;
+    }
+
+    if (fpGameMode === 'ai' && fpGS.turn !== fpPlayerColor && !fpGameOver) {
+      setTimeout(doAIMove, 350);
+    }
+  });
 }
 
 function doAIMove() {
@@ -1160,12 +1251,12 @@ function updateCapturedPieces() {
   const capturedWhite = [], capturedBlack = [];
   for (const [p, start] of Object.entries(startCounts)) {
     const diff = start - (onBoard[p] || 0);
-    const color = p > 0 ? WHITE : BLACK;
-    const type  = Math.abs(p);
-    const uni   = PIECE_UNICODE[color][type];
+    const color = +p > 0 ? WHITE : BLACK;
+    const type  = Math.abs(+p);
     for (let i=0;i<diff;i++) {
-      if (color === WHITE) capturedWhite.push(uni);
-      else                 capturedBlack.push(uni);
+      const svg = `<span class="cap-piece">${getPieceSVG(type, color === WHITE)}</span>`;
+      if (color === WHITE) capturedWhite.push(svg);
+      else                 capturedBlack.push(svg);
     }
   }
   const wEl = document.getElementById('fp-captured-white');
@@ -1597,7 +1688,7 @@ async function init() {
       updateOnlineUI(false);
       bootApp();
     }
-  }, 8000);
+  }, 5000);
 
   try {
     if (splashStatus) splashStatus.textContent = 'Verbinde mit Server…';
@@ -1664,20 +1755,7 @@ const SOUNDS = {
   castle()  { playTone(330, 0.12, 'triangle', 0.14); playTone(440, 0.12, 'triangle', 0.14); },
 };
 
-/* Patch executeMove to play sounds */
-const _origExecuteMove = executeMove;
-window.__execMoveSoundPatch = function(fromR, fromF, toR, toF, promoType = QUEEN) {
-  const captured = fpGS?.board[toR]?.[toF];
-  const piece    = fpGS?.board[fromR]?.[fromF];
-  const isCastle = Math.abs(piece) === KING && Math.abs(toF - fromF) === 2;
-
-  _origExecuteMove(fromR, fromF, toR, toF, promoType);
-
-  if (isCastle) { SOUNDS.castle(); return; }
-  if (captured && captured !== EMPTY) SOUNDS.capture();
-  else SOUNDS.move();
-  if (fpGS && isInCheck(fpGS, fpGS.turn)) SOUNDS.check();
-};
+/* Sounds are now integrated directly in executeMove */
 
 /* ═══════════════════════════════════════════════════════
    ERWEITERUNG B — 15 WEITERE PUZZLES
