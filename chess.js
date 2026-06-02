@@ -1653,8 +1653,8 @@ function resetFreeplay() {
    20. INIT
 ═══════════════════════════════════════════════════════ */
 async function init() {
-  loadChessState();
-  initDailyChallenge();
+  try { loadChessState(); }     catch (e) { console.warn('loadChessState:', e); }
+  try { initDailyChallenge(); } catch (e) { console.warn('initDailyChallenge:', e); }
 
   const splashStatus = document.getElementById('splash-status');
   let appBooted   = false;
@@ -1664,9 +1664,9 @@ async function init() {
     if (appBooted) return;
     appBooted = true;
     if (!eventsBound) {
-      applySettings();
-      updateNavXP();
-      bindEvents();
+      try { applySettings(); }  catch (e) { console.warn('applySettings:', e); }
+      try { updateNavXP(); }    catch (e) { console.warn('updateNavXP:', e); }
+      try { bindEvents(); }     catch (e) { console.warn('bindEvents:', e); }
       eventsBound = true;
     }
     setTimeout(() => {
@@ -1688,7 +1688,7 @@ async function init() {
       updateOnlineUI(false);
       bootApp();
     }
-  }, 5000);
+  }, 3000);
 
   try {
     if (splashStatus) splashStatus.textContent = 'Verbinde mit Server…';

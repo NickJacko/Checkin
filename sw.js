@@ -6,7 +6,7 @@
  *   • Offline-Fallback → index.html
  */
 
-const CACHE_NAME  = 'learnhub-v2';
+const CACHE_NAME  = 'learnhub-v3';
 const CACHE_URLS  = [
   '/',
   '/index.html',
@@ -33,7 +33,7 @@ self.addEventListener('install', event => {
   );
 });
 
-/* ── ACTIVATE: Alte Caches löschen ── */
+/* ── ACTIVATE: Alte Caches löschen und Clients neu laden ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -41,6 +41,8 @@ self.addEventListener('activate', event => {
         keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
+     .then(() => self.clients.matchAll({ type: 'window' }))
+     .then(clients => clients.forEach(c => c.navigate(c.url)))
   );
 });
 
