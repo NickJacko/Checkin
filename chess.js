@@ -784,10 +784,11 @@ function showView(name) {
   });
   currentView = name;
   closeSidebar();
-  if (name === 'dashboard') updateDashboard();
-  if (name === 'stats')     renderStats();
+  if (name === 'dashboard')    updateDashboard();
+  if (name === 'stats')        renderStats();
   if (name === 'achievements') renderAchievements();
-  if (name === 'course')    renderCourse();
+  if (name === 'course')       renderCourse();
+  if (name === 'chess-story' && typeof ChessStory !== 'undefined') ChessStory.showMap();
 }
 
 function closeSidebar() {
@@ -4105,3 +4106,1190 @@ document.addEventListener('click', e => {
   }
 }, true);
 
+
+/* ═══════════════════════════════════════════════════════════
+   CHESS STORY MODE — Die Schach-Akademie
+   3 Akte · 11 Kapitel · Mini-Missionen · Boss-Kämpfe
+═══════════════════════════════════════════════════════════ */
+
+/* ── Story Achievements (hinzufügen falls noch nicht vorhanden) ── */
+const CS_ACH = [
+  {id:'cs_first',    icon:'♙', title:'Erster Zug',         desc:'Story-Kapitel 1 abgeschlossen'},
+  {id:'cs_act1',     icon:'♞', title:'Grundlagen-Meister', desc:'Akt 1 der Schach-Akademie abgeschlossen'},
+  {id:'cs_act2',     icon:'♝', title:'Taktik-Experte',     desc:'Akt 2 der Schach-Akademie abgeschlossen'},
+  {id:'cs_act3',     icon:'♛', title:'Großmeister-Schüler',desc:'Alle 3 Akte abgeschlossen'},
+  {id:'cs_boss1',    icon:'🏰', title:'Ritter geschlagen',  desc:'Ritter Rochus besiegt'},
+  {id:'cs_boss2',    icon:'👸', title:'Baronin bezwungen',  desc:'Baronin Bianca besiegt'},
+  {id:'cs_boss3',    icon:'🤖', title:'DEEP-8 offline',     desc:'DEEP-8 besiegt – höchste Ehre!'},
+  {id:'cs_perfect',  icon:'♔', title:'Perfekte Partie',    desc:'Kapitel ohne Fehler abgeschlossen'},
+  {id:'cs_nodmg',    icon:'🛡', title:'Unantastbar',        desc:'Boss ohne eigenen Materialverlust besiegt'},
+  {id:'cs_daily_cs', icon:'📋', title:'Tagesaufgabe',       desc:'Tägliche Schach-Challenge abgeschlossen'},
+];
+CS_ACH.forEach(a => { if (!CHESS_ACHIEVEMENTS.find(x => x.id === a.id)) CHESS_ACHIEVEMENTS.push(a); });
+
+/* ── Story Data ── */
+const CHESS_STORY_ACTS = [
+/* ══════════ ACT 1: Die Grundlagen ══════════ */
+{ id:'csa1', title:'Die Grundlagen', icon:'♙', accent:'#4fc3f7',
+  desc:'Das Brett, die Figuren, erste Züge – dein Einstieg in die Welt des Schachs',
+  chapters:[
+  { id:'ca1c1', num:'1-1', title:'Das Schachbrett', icon:'♟',
+    story:'Du betrittst die ehrwürdige Schach-Akademie. Großmeister Kaspar begrüßt dich mit einem ruhigen Lächeln.',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Willkommen, junger Freund! Ich bin Großmeister Kaspar. Hier lernst du das edelste aller Spiele.'},
+      {a:'👴',n:'GM Kaspar', t:'Das Schachbrett: 64 Felder, 8×8. Die Linien heißen a–h, die Reihen 1–8. Weiß spielt von unten.'},
+    ],
+    mms:[
+      { id:'ca1c1m1', title:'Finde das Zentrum', task:'Klicke auf das wichtige Zentralfeld e4 – das Herzstück des Schachbretts!',
+        fen:'8/8/8/8/8/8/8/8 w - - 0 1', type:'click', answer:'e4',
+        hint:'Das Zentrum liegt in der Mitte des Bretts. e4 ist das 5. Feld von links, 5. Reihe von unten.', time:45,
+        win:'Perfekt! e4 ist das wichtigste Zentralfeld für Weiß.', lose:'Das Zentrum ist die Mitte des Bretts – Feld e4!'},
+      { id:'ca1c1m2', title:'Das andere Zentrumfeld', task:'Klicke auf Feld d4 – das zweite wichtige Zentralfeld!',
+        fen:'8/8/8/8/4P3/8/8/8 w - - 0 1', type:'click', answer:'d4',
+        hint:'d4 liegt links von e4, ebenfalls im Zentrum des Bretts.', time:45,
+        win:'Ausgezeichnet! d4 und e4 bilden zusammen das mächtige weiße Zentrum.', lose:'d4 liegt in der Mitte, eine Spalte links von e4!'},
+    ],
+    challenge:{ type:'lesson', lessonId:'b1', desc:'Lerne die Koordinaten kennen und klicke auf das richtige Feld.' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Großartig! Du kennst das Brett. Das Fundament ist gelegt!'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Das Brett ist verwirrend am Anfang. Kein Problem – übe nochmal!'}],
+    diff:{ easy:{xp:40,desc:'Felder kennenlernen'}, normal:{xp:60,desc:'Koordinaten sicher'}, hard:{xp:90,desc:'Blitzschnell orten'} },
+  },
+  { id:'ca1c2', num:'1-2', title:'Der mächtige Bauer', icon:'♙',
+    story:'GM Kaspar zeigt dir die bescheidenste aber vielseitigste Figur: den Bauern.',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Der Bauer – er scheint schwach, aber ein Bauer der die letzte Reihe erreicht wird zur Dame!'},
+      {a:'👴',n:'GM Kaspar', t:'Bauern ziehen vorwärts, schlagen diagonal. Beim ersten Zug darf er zwei Felder vorziehen.'},
+    ],
+    mms:[
+      { id:'ca1c2m1', title:'Bauernzug', task:'Ziehe den Bauern von e2 nach e4 – der klassische Eröffnungszug!',
+        fen:'4k3/8/8/8/8/8/4P3/4K3 w - - 0 1', type:'move', answer:{from:'e2',to:'e4'},
+        hint:'Klicke erst auf den Bauern auf e2, dann auf e4.', time:45,
+        win:'Perfekt! 1.e4 – der meistgespielte erste Zug der Schachgeschichte!', lose:'Der Bauer steht auf e2. Klicke ihn an, dann auf e4!'},
+      { id:'ca1c2m2', title:'Bauernschlag', task:'Schlage den schwarzen Bauern diagonal mit deinem Bauern!',
+        fen:'4k3/8/8/8/8/3p4/4P3/4K3 w - - 0 1', type:'move', answer:{from:'e2',to:'d3'},
+        hint:'Bauern schlagen diagonal. Dein Bauer auf e2 kann den Bauern auf d3 schlagen.', time:45,
+        win:'Excellent! Bauern schlagen immer diagonal – das ist ihr Kampfstil!', lose:'Bauern schlagen diagonal! Von e2 auf d3 (oder f3) ist ein Schlag.'},
+    ],
+    challenge:{ type:'lesson', lessonId:'m1', desc:'Meistere alle Bauernbewegungen.' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Wunderbar! Du verstehst den Bauern. Die Bauerndynamik ist das A und O!'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Bauern sind tricky. Vorwärts ziehen, diagonal schlagen – nochmal üben!'}],
+    diff:{ easy:{xp:45,desc:'Bauernzüge kennen'}, normal:{xp:65,desc:'Bauernstruktur verstehen'}, hard:{xp:95,desc:'Bauernstrategie meistern'} },
+  },
+  { id:'ca1c3', num:'1-3', title:'Türme & Läufer', icon:'♜',
+    story:'Luna, deine Mitschülerin, fordert dich freundlich zu einem Übungsspiel mit Fernkämpfern heraus.',
+    intro:[
+      {a:'👧',n:'Luna', t:'Hi! Ich bin Luna. Zeig mal was du kannst – Türme und Läufer sind meine Lieblingsfiguren!'},
+      {a:'👧',n:'Luna', t:'Türme bewegen sich horizontal und vertikal – so weit sie wollen! Läufer diagonal, bleiben auf ihrer Farbe.'},
+    ],
+    mms:[
+      { id:'ca1c3m1', title:'Turm kontrolliert', task:'Ziehe den Turm auf e8 und kontrolliere die gesamte e-Linie!',
+        fen:'4k3/8/8/8/8/8/8/4K2R w - - 0 1', type:'move', answer:{from:'h1',to:'e1'},
+        hint:'Der Turm auf h1 kann horizontal nach e1 ziehen und dann die ganze Linie kontrollieren.', time:45,
+        win:'Stark! Ein Turm auf einer offenen Linie ist äußerst mächtig!', lose:'Türme gleiten horizontal oder vertikal. Von h1 nach e1 – probier es!'},
+      { id:'ca1c3m2', title:'Läufer diagonal', task:'Ziehe den Läufer auf die lange Diagonale a7!',
+        fen:'4k3/8/8/8/8/8/8/2B1K3 w - - 0 1', type:'move', answer:{from:'c1',to:'a3'},
+        hint:'Läufer bewegen sich diagonal. Der Läufer auf c1 kann auf die Diagonale nach a3 oder nach b2 ziehen.', time:45,
+        win:'Perfekt! Läufer auf offenen Diagonalen sind wie Scharfschützen!', lose:'Läufer ziehen diagonal. Von c1 nach a3 (oder b2) – versuche es!'},
+    ],
+    challenge:{ type:'lesson', lessonId:'m3', desc:'Beweise dein Können mit Türmen und Läufern.' },
+    intro_success:[{a:'👧',n:'Luna',t:'Wow, du lernst schnell! Türme und Läufer sitzen bei dir schon gut.'}],
+    intro_fail:[{a:'👧',n:'Luna',t:'Mach dir keine Sorgen! Türme und Läufer brauchen etwas Übung – du schaffst das!'}],
+    diff:{ easy:{xp:50,desc:'Turm & Läufer bewegen'}, normal:{xp:70,desc:'Figurenzusammenspiel'}, hard:{xp:100,desc:'Offene Linien meistern'} },
+  },
+  { id:'ca1c4', num:'1-4', title:'Springer, Dame & König', icon:'♞',
+    story:'Ein mysteriöser älterer Schüler, Baron Viktor, schaut dir beim Lernen zu. Er grinst überheblich.',
+    intro:[
+      {a:'😈',n:'Baron Viktor', t:'Ha! Ein Neuling? Der Springer – die einzige Figur die über andere springen kann. L-Form!'},
+      {a:'👴',n:'GM Kaspar', t:'Ignoriere Viktor. Die Dame ist die mächtigste Figur – sie zieht wie Turm UND Läufer zusammen!'},
+    ],
+    mms:[
+      { id:'ca1c4m1', title:'Springer-Sprung', task:'Lass den Springer von g1 nach f3 springen – ein klassischer Entwicklungszug!',
+        fen:'4k3/8/8/8/8/8/8/4K1N1 w - - 0 1', type:'move', answer:{from:'g1',to:'f3'},
+        hint:'Springer springen im L: zwei Felder in eine Richtung, dann ein Feld senkrecht. Von g1 nach f3!', time:45,
+        win:'Sf3 – einer der besten ersten Züge! Springer entwickeln und Zentrum kontrollieren!', lose:'Springer: L-Form. Von g1: zwei links = e, dann ein runter = f3. Klick g1 dann f3!'},
+      { id:'ca1c4m2', title:'Damenschlag', task:'Schlage mit der Dame den Bauern auf d5 und kontrolliere das Zentrum!',
+        fen:'3pk3/8/8/3p4/8/8/8/3QK3 w - - 0 1', type:'move', answer:{from:'d1',to:'d5'},
+        hint:'Die Dame auf d1 kann gerade nach d5 ziehen und den Bauern schlagen.', time:45,
+        win:'Dxd5! Die Dame schlägt und kontrolliert gleichzeitig das Zentrum!', lose:'Die Dame zieht wie Turm und Läufer. Von d1 nach d5 ist ein gerader Zug!'},
+    ],
+    challenge:{ type:'lesson', lessonId:'m5', desc:'Beweise dein Wissen über alle Figuren.' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Wunderbar! Alle Figuren kennst du jetzt. Bist du bereit für den ersten Kampf?'}],
+    intro_fail:[{a:'😈',n:'Baron Viktor',t:'Haha! Noch nicht fertig? Na ja, nicht jeder ist eben ein Talent...'}],
+    diff:{ easy:{xp:55,desc:'Alle Figuren kennen'}, normal:{xp:75,desc:'Figuren gezielt einsetzen'}, hard:{xp:105,desc:'Komplexe Figurenspiele'} },
+  },
+  ],
+  boss:{ id:'cboss1', name:'Ritter Rochus', icon:'🏰',
+    desc:'Ein freundlicher aber hartnäckiger Gegner. Er liebt Springer-Züge!',
+    startFen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    playerColor:1, aiLevel:1, timeLimit:0,
+    taunts:['Interessanter Zug...','Hmm, du lernst schnell!','Mein Springer wartet auf dich!','Schau dir das Zentrum an!'],
+    intro:[
+      {a:'🏰',n:'Ritter Rochus', t:'Ich bin Ritter Rochus! Lass uns spielen. Ich verspreche, nicht zu einfach zu sein.'},
+      {a:'👴',n:'GM Kaspar', t:'Rochus ist gut, aber du hast alles gelernt was du brauchst. Zeig was du kannst!'},
+    ],
+    victory:[
+      {a:'🏰',n:'Ritter Rochus', t:'Ausgezeichnet gespielt! Du hast echtes Talent. Bis zum nächsten Mal!'},
+      {a:'👴',n:'GM Kaspar', t:'🎉 Bravo! Akt 1 abgeschlossen! Du bist kein Anfänger mehr!'},
+    ],
+    defeat:[{a:'🏰',n:'Ritter Rochus', t:'Gut gekämpft! Aber diesmal war ich schneller. Versuche es nochmal!'}],
+    achievementId:'cs_boss1',
+    xpBonus:150,
+  },
+  xpBonus:250,
+},
+/* ══════════ ACT 2: Die Taktik ══════════ */
+{ id:'csa2', title:'Die Taktik', icon:'♟', accent:'#69f0ae',
+  desc:'Schach, Matt, Gabeln, Pins – lerne wie echte Schachspieler denken',
+  unlockRequires:'csa1',
+  chapters:[
+  { id:'ca2c1', num:'2-1', title:'Schach & Matt', icon:'♔',
+    story:'Luna strahlt dich an: "Jetzt wird es ernst! Schach und Matt sind die Seele des Spiels."',
+    intro:[
+      {a:'👧',n:'Luna', t:'Schach bedeutet: dein König wird angegriffen! Du MUSST reagieren. Matt heißt – keine Reaktion möglich!'},
+      {a:'👧',n:'Luna', t:'Wenn dein König im Schach steht, gibt es nur drei Wege: flüchten, decken, schlagende Figur schlagen!'},
+    ],
+    mms:[
+      { id:'ca2c1m1', title:'Matt setzen!', task:'Gib dem schwarzen König Matt mit der Dame – Matt in 1!',
+        fen:'5k2/8/5Q2/8/8/8/8/4K3 w - - 0 1', type:'move', answer:{from:'f6',to:'f8'},
+        hint:'Die Dame auf f6 kann nach f8 ziehen. Ist der schwarze König dann eingeschlossen?', time:45,
+        win:'Damen-Matt! Df8# – der König hat keinen Ausweg mehr!', lose:'Die Dame auf f6 nach f8 gibt Matt! Klick Dame, dann f8.'},
+      { id:'ca2c1m2', title:'Schach geben', task:'Gib dem schwarzen König Schach mit dem Turm!',
+        fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1', type:'move', answer:{from:'a1',to:'a8'},
+        hint:'Der Turm auf a1 kann gerade nach a8 ziehen und den König auf e8 angreifen... warte, er steht auf e8, nicht a8. Überlege welche Linie den König angreift!', time:45,
+        win:'Ta8+! Schach – der König muss reagieren!', lose:'Turm nach a8 gibt Schach! Von a1 nach a8, dann greift er die 8. Reihe an.'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p1', desc:'Löse das erste echte Schachpuzzle!' },
+    intro_success:[{a:'👧',n:'Luna',t:'Du verstehst Matt! Das ist der Schlüssel zum Schach. Weiter so!'}],
+    intro_fail:[{a:'👧',n:'Luna',t:'Matt ist knifflig. Denk daran: der König muss jeden Ausweg verloren haben!'}],
+    diff:{ easy:{xp:60,desc:'Matt in 1 erkennen'}, normal:{xp:85,desc:'Mattmuster kennen'}, hard:{xp:120,desc:'Mattangriffe planen'} },
+  },
+  { id:'ca2c2', num:'2-2', title:'Die Gabel', icon:'♞',
+    story:'Baron Viktor schaut genervt zu. "Die Gabel – die billigste Taktik!" schreit er. GM Kaspar lächelt.',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Die Gabel: eine Figur greift gleichzeitig zwei gegnerische Figuren an. Jetzt muss dein Gegner wählen!'},
+      {a:'😈',n:'Baron Viktor', t:'Pff, Gabeln benutzen nur Amateure! ...Okay, zugegeben, sie sind sehr effektiv.'},
+    ],
+    mms:[
+      { id:'ca2c2m1', title:'Springer-Gabel', task:'Setze eine Gabel! Dein Springer soll gleichzeitig König UND Dame angreifen!',
+        fen:'3qk3/8/8/8/8/8/8/3NK3 w - - 0 1', type:'move', answer:{from:'d1',to:'e3'},
+        hint:'Der Springer von d1 springt im L. Nach e3 greift er sowohl d5 als auch f5 an... oder gibt es eine bessere Gabel?', time:60,
+        win:'Ne3+ Gabel! Springer greift König und Dame gleichzeitig – Materialgewinn!', lose:'Der Springer soll König UND Dame gleichzeitig angreifen. Von d1 gibt es einen Sprung der beide trifft!'},
+      { id:'ca2c2m2', title:'Damengabel', task:'Gabel mit der Dame! Greife Turm UND Läufer gleichzeitig an!',
+        fen:'r1b1k3/8/8/8/8/8/8/3QK3 w - - 0 1', type:'move', answer:{from:'d1',to:'a4'},
+        hint:'Die Dame kann in einer Bewegung zwei Figuren angreifen. Wo steht sie, um Turm auf a8 und Läufer auf c8 zu bedrohen?', time:60,
+        win:'Da4+! Gabel – Dame greift gleichzeitig zwei Figuren an. Material gewonnen!', lose:'Dame nach a4 gibt Schach und bedroht Turm. Von d1 nach a4 – probiere es!'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p6', desc:'Finde die Gabel in einem echten Puzzle!' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Exzellent! Die Gabel ist eine deiner wichtigsten Waffen. Gut verinnerlicht!'}],
+    intro_fail:[{a:'😈',n:'Baron Viktor',t:'Siehst du? Nicht jeder versteht die Gabel sofort... aber gib nicht auf!'}],
+    diff:{ easy:{xp:65,desc:'Einfache Gabeln finden'}, normal:{xp:90,desc:'Gabeln in realen Partien'}, hard:{xp:125,desc:'Komplexe Mehrfachgabeln'} },
+  },
+  { id:'ca2c3', num:'2-3', title:'Eröffnungsprinzipien', icon:'♚',
+    story:'Ein neuer Tag in der Akademie. GM Kaspar erklärt die geheimen Prinzipien der Eröffnung.',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Drei goldene Regeln der Eröffnung: 1. Kontrolliere das Zentrum! 2. Entwickle deine Figuren! 3. Rochiere!'},
+      {a:'👴',n:'GM Kaspar', t:'Wer diese drei Regeln befolgt, startet jede Partie mit Vorteil. Merke sie dir gut!'},
+    ],
+    mms:[
+      { id:'ca2c3m1', title:'Zentrum besetzen', task:'Spiele den besten ersten Zug – besetze das Zentrum mit e4!',
+        fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', type:'move', answer:{from:'e2',to:'e4'},
+        hint:'Der Klassiker: e4 kontrolliert d5 und f5, öffnet Wege für Läufer und Dame!', time:45,
+        win:'1.e4! Der König aller Eröffnungszüge – Zentrum besetzen, Figuren entwickeln!', lose:'e4 ist der stärkste erste Zug. Bauer von e2 nach e4!'},
+      { id:'ca2c3m2', title:'Springer entwickeln', task:'Entwickle den Königsspringer nach f3 – klassische Entwicklung!',
+        fen:'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1', type:'move', answer:{from:'g1',to:'f3'},
+        hint:'Nach 1.e4 ist Sf3 der beste zweite Zug – Springer entwickeln und Zentrum kontrollieren!', time:45,
+        win:'2.Sf3! Springer entwickelt, greift e5 an, bereitet Rochade vor. Perfekte Eröffnung!', lose:'Sf3 entwickelt den Springer optimal. Von g1 nach f3!'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p7', desc:'Wende die Eröffnungsprinzipien an.' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Perfekt! Mit diesen Prinzipien startest du jede Partie stark. Die Basis ist solide!'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Eröffnungsprinzipien brauchen Übung. Wiederhole: Zentrum, Entwicklung, Rochade!'}],
+    diff:{ easy:{xp:60,desc:'3 Prinzipien kennen'}, normal:{xp:85,desc:'Eröffnungen anwenden'}, hard:{xp:120,desc:'Tiefe Eröffnungstheorie'} },
+  },
+  { id:'ca2c4', num:'2-4', title:'König & Turm Endspiel', icon:'♛',
+    story:'Luna bringt dich zum Endspiel-Saal. "Endspiele entscheiden Partien!" sagt sie begeistert.',
+    intro:[
+      {a:'👧',n:'Luna', t:'Das Damenmatt: mit König und Dame den einsamen König in eine Ecke treiben. Lernen wir es Schritt für Schritt!'},
+      {a:'👧',n:'Luna', t:'Zwei Schlüsselkonzepte: Die Opposition (Könige stehen sich vis-à-vis) und die Leiter (Turm schneidet ab).'},
+    ],
+    mms:[
+      { id:'ca2c4m1', title:'Leiter-Matt', task:'Setze Matt mit König und Turm – Turm nach a8 gibt Schachmatt!',
+        fen:'7k/8/6KR/8/8/8/8/8 w - - 0 1', type:'move', answer:{from:'h6',to:'h8'},
+        hint:'Der Turm auf h6 kann nach h8 gehen. Der schwarze König auf h8 hat keine Felder mehr!', time:60,
+        win:'Th8# – Leiter-Matt! König und Turm arbeiten perfekt zusammen!', lose:'Turm nach h8 gibt Matt – der König auf h8 ist eingeschlossen. Versuche es!'},
+      { id:'ca2c4m2', title:'König in die Ecke', task:'Bringe den gegnerischen König in die Ecke – König nach g6 ist der richtige Weg!',
+        fen:'8/8/8/4k3/8/8/8/4K2Q w - - 0 1', type:'move', answer:{from:'e1',to:'e2'},
+        hint:'Der König sollte in Richtung des gegnerischen Königs gehen. Ke2 macht Opposition möglich!', time:60,
+        win:'Ke2! Gut. Der König marschiert Richtung Gegner – das ist der Schlüssel im Endspiel!', lose:'Der König muss aktiv werden. Ke2 ist ein guter erster Schritt! Klick König auf e1, dann e2.'},
+    ],
+    challenge:{ type:'endgame', scenarioId:'kg_mate', desc:'Bringe das Damenmatt-Endspiel zu Ende.' },
+    intro_success:[{a:'👧',n:'Luna',t:'Du verstehst Endspiele! Das ist etwas was viele Anfänger überspringen – nicht du!'}],
+    intro_fail:[{a:'👧',n:'Luna',t:'Endspiele brauchen Geduld. Denk systematisch – Schritt für Schritt zum Ziel!'}],
+    diff:{ easy:{xp:70,desc:'Endspielkonzepte kennen'}, normal:{xp:95,desc:'Endspiele ausführen'}, hard:{xp:130,desc:'Komplexe Endspiele'} },
+  },
+  ],
+  boss:{ id:'cboss2', name:'Baronin Bianca', icon:'👸',
+    desc:'Vikors jüngere Schwester – klug, schnell, und spielt aggressiv.',
+    startFen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    playerColor:1, aiLevel:2, timeLimit:0,
+    taunts:['Meine Taktik greift!','Vorsicht vor meinen Gabeln!','Du kämpfst gut – aber ich bin besser!','Dein König ist nicht sicher!'],
+    intro:[
+      {a:'👸',n:'Baronin Bianca', t:'Ich bin Bianca! Bruder Viktor hat viel von dir gesprochen... Lass sehen ob er recht hat!'},
+      {a:'👴',n:'GM Kaspar', t:'Bianca ist taktisch sehr stark. Behalte dein Zentrum und entwickle schnell!'},
+    ],
+    victory:[
+      {a:'👸',n:'Baronin Bianca', t:'Unglaublich! Du hast wirklich gelernt. Vielleicht ist Viktor doch zu arrogant...'},
+      {a:'👴',n:'GM Kaspar', t:'🎉 Fantastisch! Akt 2 abgeschlossen! Du bist jetzt ein echter Taktiker!'},
+    ],
+    defeat:[{a:'👸',n:'Baronin Bianca', t:'Ha! Taktik schlägt immer Strategie. Versuche es nochmal – du kannst mich schlagen!'}],
+    achievementId:'cs_boss2',
+    xpBonus:200,
+  },
+  xpBonus:350,
+},
+/* ══════════ ACT 3: Das Finale ══════════ */
+{ id:'csa3', title:'Das Finale', icon:'♛', accent:'#f59e0b',
+  desc:'Strategie, Kombinationen und das ultimative Duell gegen DEEP-8',
+  unlockRequires:'csa2',
+  chapters:[
+  { id:'ca3c1', num:'3-1', title:'Kombinationsangriff', icon:'⚔️',
+    story:'Baron Viktor tritt ins Zimmer. "Ich habe DEEP-8 aktiviert. Nur wer Kombinationen versteht, kann bestehen!"',
+    intro:[
+      {a:'😈',n:'Baron Viktor', t:'Kombinationen! Eine Abfolge von Zügen, oft mit Opfern, die zum Matt oder Materialgewinn führt.'},
+      {a:'😈',n:'Baron Viktor', t:'Ohne Kombinationsverständnis bist du hoffnungslos. Mit ihr – unaufhaltbar.'},
+    ],
+    mms:[
+      { id:'ca3c1m1', title:'Figurenopfer', task:'Opfere den Springer für einen entscheidenden Angriff! Sxf7 öffnet den Königsflügel!',
+        fen:'r1bqk2r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1', type:'move', answer:{from:'f3',to:'e5'},
+        hint:'Sxe5 greift den Springer auf c6 und attackiert f7 gleichzeitig. Das ist eine Gabel – und auch ein Opfer!', time:60,
+        win:'Sxe5! Springergabel – gleichzeitig c6 und f7 angegriffen. Brilliant!', lose:'Sf3 nach e5 schlägt und gabelt gleichzeitig c6 und f7! Klick Springer, dann e5.'},
+      { id:'ca3c1m2', title:'Mattangriff', task:'Initiiere den Angriff! Dh5 droht Matt auf f7!',
+        fen:'r1bqk2r/pppp1ppp/2n2n2/4N3/2B1P3/8/PPPP1PPP/RNBQK2R w KQkq - 0 1', type:'move', answer:{from:'d1',to:'h5'},
+        hint:'Dh5 droht Dxf7# – der König auf e8 ist in Gefahr! Klassischer Läufer-Dame-Angriff.', time:60,
+        win:'Dh5+! Der klassische Scholar\'s-Mate-Angriff beginnt. Drohung Dxf7#!', lose:'Dame nach h5 droht f7-Matt! Von d1 nach h5 – klick Dame dann h5.'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p16', desc:'Finde die entscheidende Kombination!' },
+    intro_success:[{a:'😈',n:'Baron Viktor',t:'...Nicht schlecht. Du verstehst Kombinationen. Aber kannst du DEEP-8 besiegen?'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Kombinationen brauchen Übung. Gib nicht auf – jeder Großmeister hat damit angefangen!'}],
+    diff:{ easy:{xp:80,desc:'Einfache Kombinationen'}, normal:{xp:110,desc:'Mittlere Kombinationen'}, hard:{xp:150,desc:'Komplexe Opfer'} },
+  },
+  { id:'ca3c2', num:'3-2', title:'Patt & Remis', icon:'🤝',
+    story:'GM Kaspar lehrt einen wichtigen aber oft vergessenen Aspekt: Remis-Techniken und Fallen!',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Patt: der König am Zug hat keinen legalen Zug aber steht NICHT im Schach. Das Spiel endet remis!'},
+      {a:'👴',n:'GM Kaspar', t:'Als starker Spieler kennst du Patt-Fallen – als Verteidiger kannst du sie nutzen um nicht zu verlieren!'},
+    ],
+    mms:[
+      { id:'ca3c2m1', title:'Patt erkennen', task:'Klicke auf das Feld wohin der schwarze König NICHT ziehen darf (alle Felder kontrolliert)!',
+        fen:'5k2/5Q2/5K2/8/8/8/8/8 b - - 0 1', type:'click', answer:'f8',
+        hint:'Der schwarze König auf f8 steht... im Patt! Klicke auf f8 – er kann nirgendwo hin ohne ins Schach zu gehen.', time:45,
+        win:'Patt erkannt! Der König auf f8 kann nicht ziehen ohne ins Schach zu gehen – Remis!', lose:'Klicke auf f8 – dort steht der schwarze König im Patt!'},
+      { id:'ca3c2m2', title:'Patt-Falle stellen', task:'Als Unterlegener: ziehe in ein Patt! Ke6 zwingt Weiß ins Patt!',
+        fen:'8/8/8/4k3/8/8/8/1Q2K3 b - - 0 1', type:'move', answer:{from:'e5',to:'e4'},
+        hint:'Schwarzer König nach e4! Weiß muss dann Dame spielen... und wenn die Dame falsch zieht, ist es Patt!', time:60,
+        win:'Ke4! Jetzt muss Weiß sehr sorgfältig spielen – Patt-Gefahr ist real!', lose:'Ke4 setzt Weiß unter Druck. Schwarzer König von e5 nach e4!'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p18', desc:'Nutze eine Patt-Falle zur Rettung!' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Ausgezeichnet! Patt-Fallen sind wertvolles Wissen – du hast das Konzept verstanden!'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Patt ist subtil. Denk daran: wenn der König nicht ziehen KANN ohne ins Schach zu gehen – Patt!'}],
+    diff:{ easy:{xp:75,desc:'Patt erkennen'}, normal:{xp:100,desc:'Patt-Fallen nutzen'}, hard:{xp:140,desc:'Remis-Techniken meistern'} },
+  },
+  { id:'ca3c3', num:'3-3', title:'Das Meisterduell', icon:'♛',
+    story:'Der Moment ist da. GM Kaspar schaut dich ernst an: "Ich habe alles gelehrt was ich kann. Es liegt an dir."',
+    intro:[
+      {a:'👴',n:'GM Kaspar', t:'Dieses letzte Kapitel fasst alles zusammen. Zeige mir dass du wirklich verstanden hast.'},
+      {a:'👧',n:'Luna', t:'Ich drücke dir die Daumen! Du hast so viel gelernt – du schaffst das bestimmt!'},
+      {a:'😈',n:'Baron Viktor', t:'...Ja okay, du bist vielleicht doch kein kompletter Versager. Zeig DEEP-8 was du kannst!'},
+    ],
+    mms:[
+      { id:'ca3c3m1', title:'Matt in 2', task:'Matt in 2 Zügen! Beginne mit dem stärksten ersten Zug!',
+        fen:'r1b2rk1/ppp2ppp/2n5/3pp1N1/2BP4/8/PPP2PPP/R1BQK2R w KQ - 0 1', type:'move', answer:{from:'g5',to:'f7'},
+        hint:'Sxf7 opfert den Springer – aber danach gibt es Matt! Weiß beginnt mit dem Springer-Opfer.', time:60,
+        win:'Sxf7! Springer-Opfer öffnet den Angriff – Dh5+ folgt und Matt ist unausweichlich!', lose:'Sg5xf7 ist das Opfer! Klick Springer auf g5, dann auf f7.'},
+      { id:'ca3c3m2', title:'Königsangriff', task:'Schlag mit der Dame auf h5 und setze den Angriff fort!',
+        fen:'r1b2rk1/ppp2Npp/2n5/3pp3/2BP4/8/PPP2PPP/R1BQK2R b KQ - 0 1', type:'move', answer:{from:'f8',to:'f7'},
+        hint:'Schwarz muss den Springer schlagen: Txf7. Dann kommt Dh5+ und Matt ist fast unvermeidlich!', time:60,
+        win:'Txf7! Du spielst die richtige Antwort – jetzt kommt der Mattangriff!', lose:'Txf7 schlägt den Springer. Schwarzer Turm von f8 nach f7!'},
+    ],
+    challenge:{ type:'puzzle', puzzleId:'p20', desc:'Zeige dein ganzes Können in diesem Meisterpuzzle!' },
+    intro_success:[{a:'👴',n:'GM Kaspar',t:'Wunderbar! Du hast wirklich verstanden was Schach ausmacht. Jetzt: der finale Boss!'}],
+    intro_fail:[{a:'👴',n:'GM Kaspar',t:'Fast! Der Boss wartet. Gib nicht auf – du bist fast bereit!'}],
+    diff:{ easy:{xp:90,desc:'Kombinationen erkennen'}, normal:{xp:120,desc:'Partien planen'}, hard:{xp:160,desc:'Meisterkombinationen'} },
+  },
+  ],
+  boss:{ id:'cboss3', name:'DEEP-8', icon:'🤖',
+    desc:'Ein Schachcomputer. Keine Emotionen, keine Fehler. Kann er besiegt werden?',
+    startFen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    playerColor:1, aiLevel:3, timeLimit:0,
+    taunts:['Analyse läuft...','Dein Zug ist suboptimal.','Bewertung: +0.8 für mich.','Ich berechne 5 Züge voraus.','Deine Stellung ist geschwächt.'],
+    intro:[
+      {a:'🤖',n:'DEEP-8', t:'INITIALISIERUNG. Schachmodul aktiv. Spieler-Niveau: MITTEL. Ich passe meine Stärke an.'},
+      {a:'😈',n:'Baron Viktor', t:'DEEP-8 ist... unbesiegbar. Ich habe selbst verloren. Aber du... vielleicht schaffst du es!'},
+      {a:'👴',n:'GM Kaspar', t:'Dies ist der Moment für den wir trainiert haben. Zeige DEEP-8 die Schönheit menschlichen Schachspielens!'},
+    ],
+    victory:[
+      {a:'🤖',n:'DEEP-8', t:'FEHLER DETECTED. Spieler hat gewonnen. Analysiere Spielweise... EXCEPTIONAL.'},
+      {a:'👴',n:'GM Kaspar', t:'🏆 UNMÖGLICH! Du hast DEEP-8 besiegt! Du bist ein Großmeister-Schüler! Ich bin stolz auf dich!'},
+      {a:'👧',n:'Luna', t:'Das war das Beste was ich je gesehen habe! Du bist jetzt einer von uns!'},
+      {a:'😈',n:'Baron Viktor', t:'...Ich gebe es zu. Du... bist gut. Vielleicht sogar besser als ich. Respekt.'},
+    ],
+    defeat:[{a:'🤖',n:'DEEP-8', t:'ANALYSE KOMPLETT. Niederlage des Spielers. Empfehlung: Mehr Taktik üben. RETRY verfügbar.'}],
+    achievementId:'cs_boss3',
+    xpBonus:300,
+  },
+  xpBonus:500,
+},
+];
+
+/* ── Daily Chess Challenge ── */
+const CHESS_DAILY_STORY = [
+  {fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1',        task:'Gib dem König Schach mit dem Turm!',   title:'Turm-Mission', answer:{from:'a1',to:'a8'}},
+  {fen:'4k3/8/8/8/3Q4/8/8/4K3 w - - 0 1',        task:'Gib dem König Schach mit der Dame!',  title:'Damen-Mission',answer:{from:'d4',to:'d8'}},
+  {fen:'4k3/8/8/8/8/8/8/4K2N w - - 0 1',         task:'Springe mit dem Springer nach f3!',   title:'Springer-Mission',answer:{from:'h1',to:'f2'}},
+  {fen:'4k3/8/8/8/8/8/4P3/4K3 w - - 0 1',        task:'Spiele den besten Bauernzug – e4!',   title:'Bauern-Mission',answer:{from:'e2',to:'e4'}},
+  {fen:'5k2/5Q2/5K2/8/8/8/8/8 w - - 0 1',        task:'Setze Matt – Dame nach f8!',          title:'Matt-Mission',  answer:{from:'f7',to:'f8'}},
+  {fen:'4k3/8/8/8/8/3p4/4P3/4K3 w - - 0 1',      task:'Schlage diagonal mit dem Bauern!',    title:'Schlag-Mission', answer:{from:'e2',to:'d3'}},
+  {fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',task:'Spiele den besten ersten Zug – e4!',title:'Eröffnungs-Mission',answer:{from:'e2',to:'e4'}},
+];
+
+/* ═══════════════════════════════════════════════════════════
+   ChessStory MODULE
+═══════════════════════════════════════════════════════════ */
+const ChessStory = (() => {
+  /* ── state ── */
+  let activeAct      = null;
+  let activeChapter  = null;
+  let activeDiff     = 'normal';
+  let mmIdx          = 0;
+  let mmTimerRef     = null;
+  let mmDone         = false;
+  let mmAttempts     = 3;
+  let mmSelected     = null;
+  let mmGS           = null;
+  let dialogQueue    = [];
+  let dialogIdx      = 0;
+  let isTypingDialog = false;
+  let currentActIdx  = 0;
+  let bossGS         = null;
+  let bossSelected   = null;
+  let bossLegal      = [];
+  let bossPlayerColor = WHITE;
+  let bossAILevel    = 1;
+  let bossGameOver   = false;
+  let bossCaptures   = {white:0, black:0};
+
+  /* ── DOM helpers ── */
+  const el   = id => document.getElementById(id);
+  const hide = id => { const e = el(id); if (e) e.classList.add('hidden'); };
+  const show = id => { const e = el(id); if (e) e.classList.remove('hidden'); };
+
+  function setHtml(id, h) { const e = el(id); if (e) e.innerHTML = h; }
+  function setText(id, t) { const e = el(id); if (e) e.textContent = t; }
+
+  function activateView() {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    el('view-chess-story')?.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelector('.nav-item[data-view="chess-story"]')?.classList.add('active');
+    closeSidebar();
+  }
+
+  /* ── persistence ── */
+  function ss()           { if (!CS.storyProgress) CS.storyProgress = {chapters:{}, acts:{}, diff:'normal'}; return CS.storyProgress; }
+  function getRes(id)     { return ss().chapters[id] || null; }
+  function saveRes(id, d) { ss().chapters[id] = d; saveChessState(); }
+  function getActRes(id)  { return ss().acts?.[id] || null; }
+  function saveActRes(id, d) { if (!ss().acts) ss().acts = {}; ss().acts[id] = d; saveChessState(); }
+
+  /* ── unlock logic ── */
+  function actUnlocked(act) {
+    if (!act.unlockRequires) return true;
+    const req = CHESS_STORY_ACTS.find(a => a.id === act.unlockRequires);
+    return req ? !!getActRes(req.id)?.completed : false;
+  }
+  function chUnlocked(act, idx) {
+    if (!actUnlocked(act)) return false;
+    if (idx === 0) return true;
+    return !!getRes(act.chapters[idx - 1].id)?.completed;
+  }
+  function bossUnlocked(act) {
+    return actUnlocked(act) && act.chapters.every(c => !!getRes(c.id)?.completed);
+  }
+  function calcStars(score, diff) {
+    if (score >= 90) return 3;
+    if (score >= 70) return 2;
+    return 1;
+  }
+
+  /* ══ WORLD MAP ══ */
+  function showMap() {
+    activateView();
+    ['cs-difficulty','cs-intro','cs-minimission','cs-boss',
+     'cs-result','cs-act-complete','cs-weakness'].forEach(hide);
+    show('cs-map');
+    renderActTabs();
+    renderPath(currentActIdx);
+    renderDailyWidget();
+  }
+
+  function renderActTabs() {
+    const wrap = el('cs-acts-tabs');
+    if (!wrap) return;
+    wrap.innerHTML = CHESS_STORY_ACTS.map((a, i) => {
+      const done   = !!getActRes(a.id)?.completed;
+      const locked = !actUnlocked(a);
+      const cls    = ['csact-tab', i === currentActIdx ? 'active' : '', locked ? 'locked-tab' : ''].join(' ');
+      return `<button class="${cls}" data-cs-act="${i}">
+        ${a.icon} ${a.title}${done ? ' ✓' : ''}
+      </button>`;
+    }).join('');
+    wrap.querySelectorAll('[data-cs-act]').forEach(btn => {
+      const idx = +btn.dataset.csAct;
+      if (actUnlocked(CHESS_STORY_ACTS[idx])) {
+        btn.addEventListener('click', () => { currentActIdx = idx; renderActTabs(); renderPath(idx); });
+      }
+    });
+  }
+
+  function renderPath(actIdx) {
+    const act  = CHESS_STORY_ACTS[actIdx];
+    const wrap = el('cs-world-path');
+    if (!act || !wrap) return;
+
+    let html = '<div class="cswp-inner">';
+    act.chapters.forEach((ch, i) => {
+      const res  = getRes(ch.id);
+      const unl  = chUnlocked(act, i);
+      const done = !!res?.completed;
+      const next = unl && !done;
+      const s    = res?.stars || 0;
+      const cirCls  = ['cswp-circle', done?'done':'', next?'next':'', !unl?'locked':''].join(' ');
+      const nodeCls = ['cswp-node',   done?'done':'', next?'next':'', !unl?'locked':''].join(' ');
+      html += `<div class="${nodeCls}" data-cs-ch="${ch.id}" data-cs-act="${actIdx}">
+        <div class="${cirCls}">${ch.icon}</div>
+        <div class="cswp-stars">${done ? '⭐'.repeat(s)+'☆'.repeat(3-s) : '☆☆☆'}</div>
+        <div class="cswp-label">${ch.title}</div>
+      </div><div class="cswp-connector${done?' done':''}"></div>`;
+    });
+    const bUnl  = bossUnlocked(act);
+    const bDone = !!getActRes(act.id)?.completed;
+    const bNext = bUnl && !bDone;
+    const bCls  = ['cswp-circle boss-node', bDone?'done':'', bNext?'next':'', !bUnl?'locked':''].join(' ');
+    html += `<div class="cswp-node${bDone?' done':bNext?' next':''}${!bUnl?' locked':''}" data-cs-boss="${actIdx}">
+      <div class="${bCls}">${act.boss.icon}</div>
+      <div class="cswp-stars">${bDone?'👑':bUnl?'⚠️':'🔒'}</div>
+      <div class="cswp-label">${act.boss.name}</div>
+    </div></div>`;
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('[data-cs-ch]').forEach(node => {
+      const id   = node.dataset.csCh;
+      const ai   = +node.dataset.csAct;
+      const a2   = CHESS_STORY_ACTS[ai];
+      const ci   = a2.chapters.findIndex(c => c.id === id);
+      if (chUnlocked(a2, ci)) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', () => openDiffSelect(a2, a2.chapters[ci]));
+      }
+    });
+    wrap.querySelectorAll('[data-cs-boss]').forEach(node => {
+      const ai = +node.dataset.csBoss;
+      const a2 = CHESS_STORY_ACTS[ai];
+      if (bossUnlocked(a2)) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', () => startBossIntro(a2));
+      }
+    });
+  }
+
+  /* ── Daily Widget ── */
+  function renderDailyWidget() {
+    const wrap = el('cs-daily-widget');
+    if (!wrap) return;
+    const today = new Date().toISOString().slice(0,10);
+    const dc    = ss().daily;
+    const done  = dc?.date === today && dc?.done;
+    const dow   = new Date().getDay();
+    const ch    = CHESS_DAILY_STORY[dow];
+    wrap.innerHTML = `<div class="cs-daily-card" id="cs-daily-btn">
+      <div style="font-weight:800;color:var(--green)">📋 ${ch.title}</div>
+      <div style="font-size:.75rem;color:var(--text-3)">${ch.task}</div>
+      ${done ? '<div style="color:var(--green);font-weight:700;font-size:.75rem">✅ Heute erledigt</div>'
+              : '<div style="font-size:.75rem;color:var(--text-3)">Extra XP · Tägliche Aufgabe</div>'}
+    </div>`;
+    if (!done) el('cs-daily-btn')?.addEventListener('click', startDailyChallenge);
+  }
+
+  function startDailyChallenge() {
+    const dow  = new Date().getDay();
+    const ch   = CHESS_DAILY_STORY[dow];
+    activeChapter = { id:'daily', mms:[{ id:'daily_mm', title:ch.title, task:ch.task,
+      fen:ch.fen, type:'move', answer:ch.answer, hint:'Schau dir die Position genau an!', time:60,
+      win:'Tagesaufgabe gelöst! +50 XP', lose:'Versuche es nochmal!' }] };
+    mmIdx = 0;
+    activeDiff = 'normal';
+    runMinimission(ch.fen, {
+      id:'daily_mm', title:ch.title, task:ch.task, type:'move', answer:ch.answer,
+      hint:'Schau dir die Position genau an!', time:60,
+      win:'Tagesaufgabe gelöst! Gut gemacht!', lose:'Fast! Versuche es nochmal.'
+    }, () => {
+      const today = new Date().toISOString().slice(0,10);
+      ss().daily = { date:today, done:true };
+      awardXP(50);
+      checkAndUnlock('cs_daily_cs');
+      saveChessState();
+      showMap();
+    });
+  }
+
+  /* ══ DIFFICULTY SELECT ══ */
+  function openDiffSelect(act, chapter) {
+    activeAct     = act;
+    activeChapter = chapter;
+    activateView();
+    ['cs-map','cs-intro','cs-minimission','cs-boss',
+     'cs-result','cs-act-complete','cs-weakness'].forEach(hide);
+    show('cs-difficulty');
+
+    const res = getRes(chapter.id);
+    setHtml('cs-diff-header', `
+      <span class="cs-chapter-icon">${chapter.icon}</span>
+      <div>
+        <div class="cs-chapter-sub">${chapter.num}</div>
+        <div class="cs-chapter-name">${chapter.title}</div>
+      </div>
+      ${res?.completed ? `<span style="margin-left:auto;color:var(--green);font-size:.8rem">✅ ${res.stars}⭐</span>` : ''}
+    `);
+
+    setHtml('cs-diff-cards', [
+      {key:'easy',  icon:'🐣', name:'Leicht',  color:'#69f0ae',
+       req:chapter.diff.easy.desc,  xp:chapter.diff.easy.xp},
+      {key:'normal',icon:'♟',  name:'Normal',  color:'var(--accent)',
+       req:chapter.diff.normal.desc, xp:chapter.diff.normal.xp},
+      {key:'hard',  icon:'♛',  name:'Meister', color:'#f59e0b',
+       req:chapter.diff.hard.desc,  xp:chapter.diff.hard.xp},
+    ].map(o => `<div class="cs-diff-card ${o.key}" data-diff="${o.key}">
+      <span class="cs-diff-icon">${o.icon}</span>
+      <div class="cs-diff-name" style="color:${o.color}">${o.name}</div>
+      <div class="cs-diff-req">${o.req}</div>
+      <div class="cs-diff-xp">+${o.xp} XP</div>
+    </div>`).join(''));
+
+    el('cs-btn-diff-back').onclick = showMap;
+    el('cs-diff-cards').querySelectorAll('[data-diff]').forEach(card => {
+      card.addEventListener('click', () => {
+        activeDiff = card.dataset.diff;
+        startChapterIntro();
+      });
+    });
+  }
+
+  /* ══ CHAPTER INTRO ══ */
+  function startChapterIntro() {
+    activateView();
+    ['cs-difficulty','cs-minimission','cs-boss','cs-result',
+     'cs-act-complete','cs-weakness','cs-map'].forEach(hide);
+    show('cs-intro');
+
+    const ch    = activeChapter;
+    const dName = {easy:'🐣 Leicht', normal:'♟ Normal', hard:'♛ Meister'}[activeDiff];
+    setHtml('cs-banner', `
+      <span class="cs-chapter-icon">${ch.icon}</span>
+      <div style="flex:1">
+        <div class="cs-chapter-sub">${ch.num}</div>
+        <div class="cs-chapter-name">${ch.title}</div>
+      </div>
+      <span class="cs-diff-badge">${dName}</span>
+    `);
+    setText('cs-narrative', ch.story);
+
+    dialogQueue    = ch.intro;
+    dialogIdx      = 0;
+    isTypingDialog = false;
+    el('cs-btn-next').onclick  = nextIntroDialog;
+    el('cs-btn-skip').onclick  = startMiniMissions;
+    showCsDialog(dialogQueue[0]);
+  }
+
+  function showCsDialog(msg) {
+    if (!msg) return;
+    setText('cs-dialog-speaker', `${msg.a} ${msg.n}`);
+    const textEl = el('cs-dialog-text');
+    if (!textEl) return;
+    textEl.textContent = '';
+    show('cs-dialog-dots');
+    isTypingDialog = true;
+    let i = 0;
+    const iv = setInterval(() => {
+      if (i < msg.t.length) { textEl.textContent += msg.t[i++]; }
+      else { clearInterval(iv); hide('cs-dialog-dots'); isTypingDialog = false; }
+    }, 22);
+  }
+
+  function nextIntroDialog() {
+    if (isTypingDialog) {
+      const msg = dialogQueue[dialogIdx];
+      if (msg) { setText('cs-dialog-text', msg.t); hide('cs-dialog-dots'); isTypingDialog = false; }
+      return;
+    }
+    dialogIdx++;
+    if (dialogIdx < dialogQueue.length) showCsDialog(dialogQueue[dialogIdx]);
+    else startMiniMissions();
+  }
+
+  /* ══ MINI MISSIONS ══ */
+  function startMiniMissions() {
+    mmIdx = 0;
+    startNextMiniMission();
+  }
+
+  function startNextMiniMission() {
+    const ch = activeChapter;
+    if (mmIdx >= (ch.mms?.length || 0)) { startChapterChallenge(); return; }
+    const mm = ch.mms[mmIdx];
+    runMinimission(mm.fen, mm, () => { mmIdx++; startNextMiniMission(); });
+  }
+
+  function runMinimission(fen, mm, onSuccess) {
+    activateView();
+    ['cs-intro','cs-difficulty','cs-boss','cs-result',
+     'cs-act-complete','cs-weakness','cs-map'].forEach(hide);
+    show('cs-minimission');
+
+    const ch    = activeChapter;
+    setHtml('cs-mm-header', ch
+      ? `<strong>${ch.num}: ${ch.title}</strong> – Mini-Mission ${mmIdx + 1} / ${ch.mms?.length || 1}`
+      : `<strong>Tägliche Aufgabe</strong>`);
+
+    setText('cs-mm-task', mm.task);
+    hide('cs-mm-feedback');
+    setText('cs-mm-hint-box', '💡 ' + mm.hint);
+    mmAttempts  = 3;
+    mmDone      = false;
+    mmSelected  = null;
+
+    updateMmAttempts();
+    clearInterval(mmTimerRef);
+
+    let timeLeft = mm.time || 45;
+    setText('cs-mm-timer', timeLeft);
+    el('cs-mm-timer')?.classList.remove('urgent');
+
+    mmTimerRef = setInterval(() => {
+      if (mmDone) { clearInterval(mmTimerRef); return; }
+      timeLeft--;
+      setText('cs-mm-timer', timeLeft);
+      if (timeLeft <= 10) el('cs-mm-timer')?.classList.add('urgent');
+      if (timeLeft <= 0) { clearInterval(mmTimerRef); mmFail(mm, '⏱ Zeit abgelaufen!', onSuccess); }
+    }, 1000);
+
+    // Build board
+    mmGS = parseFen(mm.fen);
+    const container = el('cs-mm-board');
+    if (container) {
+      container.innerHTML = '';
+      const size = Math.min(280, Math.floor((window.innerWidth - 200) / 1));
+      const boardEl = buildBoardElement('cs-mm', (r, f) => handleMmClick(r, f, mm, onSuccess));
+      container.appendChild(boardEl);
+      const board = boardEl.querySelector('.chess-board');
+      if (board) { board.style.width = '280px'; board.style.height = '280px'; }
+      renderBoard('cs-mm', mmGS, null, [], null, undefined);
+    }
+
+    el('cs-mm-hint-btn').onclick = () => {
+      show('cs-mm-hint-box');
+    };
+    hide('cs-mm-hint-box');
+  }
+
+  function updateMmAttempts() {
+    setText('cs-mm-attempts', mmAttempts >= 3 ? '💚💚💚' : mmAttempts === 2 ? '💚💚🖤' : mmAttempts === 1 ? '💚🖤🖤' : '🖤🖤🖤');
+  }
+
+  function handleMmClick(r, f, mm, onSuccess) {
+    if (mmDone) return;
+    const alg = coordToAlgebraic(r, f);
+
+    if (mm.type === 'click') {
+      if (alg === mm.answer) mmSuccess(mm, onSuccess);
+      else { mmAttempts--; updateMmAttempts(); showMmFeedback('wrong', '✗ ' + mm.lose); if (mmAttempts <= 0) mmFail(mm, 'Keine Versuche mehr. ' + mm.lose, onSuccess); }
+      return;
+    }
+
+    if (mm.type === 'move') {
+      if (!mmSelected) {
+        const piece = mmGS.board[r][f];
+        if (piece === EMPTY || piece < 0) return; // only white pieces
+        mmSelected = {r, f};
+        const legal = legalMovesFor(mmGS, r, f);
+        renderBoard('cs-mm', mmGS, {r,f}, legal, null, undefined);
+      } else {
+        const fromAlg = coordToAlgebraic(mmSelected.r, mmSelected.f);
+        if (fromAlg === mm.answer.from && alg === mm.answer.to) {
+          mmGS = applyMove(mmGS, mmSelected.r, mmSelected.f, r, f);
+          renderBoard('cs-mm', mmGS, null, [], {fromR:mmSelected.r,fromF:mmSelected.f,toR:r,toF:f}, undefined);
+          mmSelected = null;
+          mmSuccess(mm, onSuccess);
+        } else {
+          if (mmGS.board[r][f] > 0) { // re-select
+            mmSelected = {r, f};
+            renderBoard('cs-mm', mmGS, {r,f}, legalMovesFor(mmGS,r,f), null, undefined);
+            return;
+          }
+          mmSelected = null;
+          mmAttempts--;
+          updateMmAttempts();
+          showMmFeedback('wrong', '✗ ' + mm.lose);
+          renderBoard('cs-mm', mmGS, null, [], null, undefined);
+          if (mmAttempts <= 0) mmFail(mm, 'Alle Versuche aufgebraucht!', onSuccess);
+        }
+      }
+    }
+  }
+
+  function showMmFeedback(type, text) {
+    const fb = el('cs-mm-feedback');
+    if (!fb) return;
+    fb.className   = 'cs-mm-feedback ' + type;
+    fb.textContent = text;
+    show('cs-mm-feedback');
+    setTimeout(() => hide('cs-mm-feedback'), 2000);
+  }
+
+  function mmSuccess(mm, onSuccess) {
+    mmDone = true;
+    clearInterval(mmTimerRef);
+    showMmFeedback('correct', '✓ ' + mm.win);
+    if (CS.settings.sound) SOUNDS.correct();
+    setTimeout(onSuccess, 1200);
+  }
+
+  function mmFail(mm, msg, onSuccess) {
+    mmDone = true;
+    clearInterval(mmTimerRef);
+    showMmFeedback('wrong', '✗ ' + msg);
+    if (CS.settings.sound) SOUNDS.wrong();
+    // Reset and retry
+    mmAttempts = 3;
+    mmDone     = false;
+    mmSelected = null;
+    clearInterval(mmTimerRef);
+    setTimeout(() => {
+      // Show solution briefly then restart
+      const answer = mm.answer;
+      if (answer && typeof answer === 'object' && answer.from) {
+        const fc = algebraicToCoord(answer.from), tc = algebraicToCoord(answer.to);
+        mmGS = parseFen(mm.fen);
+        const solGS = applyMove(mmGS, fc.r, fc.f, tc.r, tc.f);
+        renderBoard('cs-mm', solGS, null, [], {fromR:fc.r,fromF:fc.f,toR:tc.r,toF:tc.f}, undefined);
+        showMmFeedback('correct', '💡 Lösung: ' + answer.from + '→' + answer.to);
+        mmGS = parseFen(mm.fen);
+        renderBoard('cs-mm', mmGS, null, [], null, undefined);
+        setTimeout(() => { mmDone = false; mmSelected = null; updateMmAttempts(); startTimerFor(mm, onSuccess); }, 2500);
+      }
+    }, 1200);
+  }
+
+  function startTimerFor(mm, onSuccess) {
+    let timeLeft = mm.time || 45;
+    setText('cs-mm-timer', timeLeft);
+    el('cs-mm-timer')?.classList.remove('urgent');
+    clearInterval(mmTimerRef);
+    mmTimerRef = setInterval(() => {
+      if (mmDone) { clearInterval(mmTimerRef); return; }
+      timeLeft--;
+      setText('cs-mm-timer', timeLeft);
+      if (timeLeft <= 10) el('cs-mm-timer')?.classList.add('urgent');
+      if (timeLeft <= 0) { clearInterval(mmTimerRef); mmFail(mm, '⏱ Zeit abgelaufen!', onSuccess); }
+    }, 1000);
+  }
+
+  /* ══ CHAPTER CHALLENGE ══ */
+  function startChapterChallenge() {
+    const ch      = activeChapter;
+    const chal    = ch.challenge;
+    const diffCfg = ch.diff[activeDiff];
+
+    if (chal.type === 'lesson') {
+      // Use existing lesson system, then return to story
+      const lesson = ALL_CHESS_LESSONS.find(l => l.id === chal.lessonId);
+      if (lesson) {
+        startLesson(chal.lessonId);
+        // Patch back button to go to story result
+        const origBack = document.getElementById('btn-back-lesson');
+        if (origBack) {
+          const newBack = origBack.cloneNode(true);
+          origBack.parentNode.replaceChild(newBack, origBack);
+          newBack.addEventListener('click', (e) => { e.stopPropagation(); onChapterComplete(true, 80, 0); }, {once:true});
+        }
+      } else onChapterComplete(true, 80, 0);
+
+    } else if (chal.type === 'puzzle') {
+      // Use existing puzzle system
+      const puz = [...PUZZLES].find(p => p.id === chal.puzzleId);
+      if (puz) {
+        const puzIdx = PUZZLES.findIndex(p => p.id === chal.puzzleId);
+        showView('puzzles');
+        loadPuzzle(puzIdx >= 0 ? puzIdx : 0);
+      } else showView('puzzles');
+
+    } else if (chal.type === 'endgame') {
+      showView('endgames');
+    } else {
+      onChapterComplete(true, 80, 0);
+    }
+  }
+
+  function onChapterComplete(passed, score, errors) {
+    const ch      = activeChapter;
+    const diffCfg = ch.diff[activeDiff];
+    const s       = calcStars(score, activeDiff);
+    const xpEarned = passed ? diffCfg.xp : Math.floor(diffCfg.xp * 0.3);
+
+    if (passed) {
+      const existing = getRes(ch.id);
+      saveRes(ch.id, {
+        completed: true,
+        stars: Math.max(s, existing?.stars || 0),
+        bestScore: Math.max(score, existing?.bestScore || 0),
+      });
+      awardXP(xpEarned);
+      updateStreak();
+      checkAndUnlock('cs_first');
+      if (errors === 0) checkAndUnlock('cs_perfect');
+      saveChessState();
+    }
+
+    showChapterResult(passed, score, errors, xpEarned, s);
+  }
+
+  /* ══ CHAPTER RESULT ══ */
+  function showChapterResult(passed, score, errors, xpEarned, stars) {
+    activateView();
+    ['cs-map','cs-intro','cs-minimission','cs-boss',
+     'cs-act-complete','cs-weakness'].forEach(hide);
+    show('cs-result');
+
+    const ch   = activeChapter;
+    const msgs = passed ? ch.intro_success : ch.intro_fail;
+    setHtml('cs-result-dialog', `<div class="cs-sresult-dialog">${msgs.map(m => `
+      <div class="cs-sbubble">
+        <span class="cs-sava">${m.a}</span>
+        <div class="cs-smsg-wrap">
+          <div class="cs-sspk">${m.n}</div>
+          <div class="cs-smsg">${m.t}</div>
+        </div>
+      </div>`).join('')}</div>`);
+
+    setHtml('cs-result-stats', `
+      <div class="story-stat-pill"><span class="story-stat-val">${passed ? '✅' : '❌'}</span><span class="story-stat-lbl">Status</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${passed ? '⭐'.repeat(stars)+'☆'.repeat(3-stars) : '—'}</span><span class="story-stat-lbl">Sterne</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val" style="color:var(--green)">+${xpEarned}</span><span class="story-stat-lbl">XP</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${errors}</span><span class="story-stat-lbl">Fehler</span></div>
+    `);
+
+    let actionsHtml = '';
+    if (!passed) {
+      actionsHtml = `<button class="btn-primary" id="cs-retry">↺ Nochmal</button>
+                     <button class="btn-ghost"   id="cs-back-map">← Karte</button>`;
+    } else {
+      const actIdx = CHESS_STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === ch.id));
+      const act    = CHESS_STORY_ACTS[actIdx];
+      const chIdx  = act.chapters.findIndex(c => c.id === ch.id);
+      const allDone = act.chapters.every(c => !!getRes(c.id)?.completed);
+
+      if (allDone) {
+        actionsHtml = `<button class="btn-primary" id="cs-go-boss">⚔️ Boss-Kampf starten!</button>
+                       <button class="btn-ghost"   id="cs-back-map">← Karte</button>`;
+      } else {
+        const next = act.chapters[chIdx + 1];
+        actionsHtml = `${next ? `<button class="btn-primary" id="cs-next-ch">Nächstes Kapitel ▶</button>` : ''}
+                       <button class="btn-ghost" id="cs-back-map">← Karte</button>`;
+      }
+    }
+    setHtml('cs-result-actions', actionsHtml);
+
+    el('cs-retry')?.addEventListener('click', () => openDiffSelect(activeAct, activeChapter));
+    el('cs-back-map')?.addEventListener('click', showMap);
+    el('cs-go-boss')?.addEventListener('click', () => {
+      const aIdx = CHESS_STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === activeChapter.id));
+      startBossIntro(CHESS_STORY_ACTS[aIdx]);
+    });
+    el('cs-next-ch')?.addEventListener('click', () => {
+      const aIdx = CHESS_STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === activeChapter.id));
+      const a    = CHESS_STORY_ACTS[aIdx];
+      const ci   = a.chapters.findIndex(c => c.id === activeChapter.id);
+      if (a.chapters[ci+1]) openDiffSelect(a, a.chapters[ci+1]);
+      else showMap();
+    });
+  }
+
+  /* ══ BOSS INTRO ══ */
+  function startBossIntro(act) {
+    activeAct = act;
+    activateView();
+    ['cs-map','cs-result','cs-weakness','cs-act-complete',
+     'cs-minimission','cs-difficulty'].forEach(hide);
+    show('cs-intro');
+
+    const boss = act.boss;
+    setHtml('cs-banner', `
+      <span class="cs-chapter-icon">${boss.icon}</span>
+      <div style="flex:1">
+        <div class="cs-chapter-sub">Boss-Kampf · Akt ${CHESS_STORY_ACTS.indexOf(act)+1}</div>
+        <div class="cs-chapter-name">${boss.name}</div>
+      </div>
+      <span class="cs-diff-badge" style="color:#f59e0b">⚠️ Boss!</span>
+    `);
+    setText('cs-narrative', boss.desc);
+
+    dialogQueue    = boss.intro;
+    dialogIdx      = 0;
+    isTypingDialog = false;
+    el('cs-btn-next').onclick  = nextBossDialog;
+    el('cs-btn-skip').onclick  = () => launchBossGame(act);
+    showCsDialog(dialogQueue[0]);
+  }
+
+  function nextBossDialog() {
+    if (isTypingDialog) {
+      const msg = dialogQueue[dialogIdx];
+      if (msg) { setText('cs-dialog-text', msg.t); hide('cs-dialog-dots'); isTypingDialog = false; }
+      return;
+    }
+    dialogIdx++;
+    if (dialogIdx < dialogQueue.length) showCsDialog(dialogQueue[dialogIdx]);
+    else launchBossGame(activeAct);
+  }
+
+  /* ══ BOSS BATTLE ══ */
+  function launchBossGame(act) {
+    activeAct        = act;
+    const boss       = act.boss;
+    bossGS           = parseFen(boss.startFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    bossPlayerColor  = boss.playerColor !== undefined ? boss.playerColor : WHITE;
+    bossAILevel      = boss.aiLevel || 1;
+    bossGameOver     = false;
+    bossSelected     = null;
+    bossLegal        = [];
+    bossCaptures     = {white:0, black:0};
+
+    activateView();
+    ['cs-map','cs-intro','cs-result','cs-weakness','cs-act-complete','cs-minimission'].forEach(hide);
+    show('cs-boss');
+
+    setText('cs-boss-name', boss.name);
+    setText('cs-boss-rating', `KI Level ${bossAILevel}`);
+    setHtml('cs-boss-dialog', '');
+    hide('cs-boss-flash');
+    updateEvalBar(0);
+    setBossStatus('Du bist am Zug');
+
+    const container = el('cs-boss-board');
+    if (container) {
+      container.innerHTML = '';
+      const boardEl = buildBoardElement('cs-boss', handleBossClick);
+      container.appendChild(boardEl);
+      const board = boardEl.querySelector('.chess-board');
+      if (board) { board.style.width = '280px'; board.style.height = '280px'; }
+    }
+
+    el('cs-boss-resign').onclick = () => {
+      if (!bossGameOver) {
+        bossGameOver = true;
+        endBossGame(false, act);
+      }
+    };
+
+    renderBossBoard();
+
+    if (bossGS.turn !== bossPlayerColor) setTimeout(() => doBossAIMove(act), 600);
+    else setBossStatus('Du bist am Zug – mach deinen Zug!');
+  }
+
+  function renderBossBoard() {
+    const inCheck = isInCheck(bossGS, bossGS.turn) ? bossGS.turn : undefined;
+    renderBoard('cs-boss', bossGS, bossSelected || null, bossLegal, null, inCheck);
+  }
+
+  function handleBossClick(r, f) {
+    if (bossGameOver) return;
+    if (bossGS.turn !== bossPlayerColor) return;
+
+    const piece = bossGS.board[r][f];
+    if (!bossSelected) {
+      if (piece === EMPTY || (piece > 0) !== (bossPlayerColor > 0)) return;
+      bossSelected = {r, f};
+      bossLegal    = legalMovesFor(bossGS, r, f);
+      renderBossBoard();
+    } else {
+      const isLegal = bossLegal.some(m => m.r === r && m.f === f);
+      if (!isLegal) {
+        if (piece !== EMPTY && (piece > 0) === (bossPlayerColor > 0)) {
+          bossSelected = {r, f};
+          bossLegal    = legalMovesFor(bossGS, r, f);
+          renderBossBoard();
+          return;
+        }
+        bossSelected = null; bossLegal = [];
+        renderBossBoard(); return;
+      }
+
+      const captured = bossGS.board[r][f];
+      if (captured !== EMPTY) bossCaptures.white += PIECE_VALUES[Math.abs(captured)];
+
+      bossGS = applyMove(bossGS, bossSelected.r, bossSelected.f, r, f);
+      bossSelected = null; bossLegal = [];
+
+      if (CS.settings.sound) SOUNDS.move();
+      renderBossBoard();
+      addBossMove(`${coordToAlgebraic(bossSelected?.r || r, bossSelected?.f || f)}→${coordToAlgebraic(r,f)}`);
+
+      if (isCheckmate(bossGS)) { bossGameOver = true; endBossGame(true, activeAct); return; }
+      if (isStalemate(bossGS)) { bossGameOver = true; endBossGame(false, activeAct, true); return; }
+
+      updateEvalBar(estimateEval());
+      setBossStatus('Gegner denkt...');
+      showBossTaunt(activeAct.boss);
+      setTimeout(() => doBossAIMove(activeAct), 600);
+    }
+  }
+
+  function doBossAIMove(act) {
+    if (bossGameOver) return;
+    const mv = aiMove(bossGS, bossAILevel);
+    if (!mv) { bossGameOver = true; endBossGame(true, act); return; }
+
+    const captured = bossGS.board[mv.r][mv.f];
+    if (captured !== EMPTY) {
+      bossCaptures.black += PIECE_VALUES[Math.abs(captured)];
+      if (CS.settings.sound) SOUNDS.capture();
+      flashBossScreen();
+    } else if (CS.settings.sound) SOUNDS.move();
+
+    bossGS = applyMove(bossGS, mv.fromR, mv.fromF, mv.r, mv.f);
+    bossSelected = null; bossLegal = [];
+    renderBossBoard();
+    addBossMove(`${coordToAlgebraic(mv.fromR,mv.fromF)}→${coordToAlgebraic(mv.r,mv.f)}`);
+
+    if (isCheckmate(bossGS)) { bossGameOver = true; endBossGame(false, act); return; }
+    if (isStalemate(bossGS)) { bossGameOver = true; endBossGame(false, act, true); return; }
+
+    updateEvalBar(estimateEval());
+    const inCheck = isInCheck(bossGS, bossGS.turn);
+    setBossStatus(inCheck ? '⚠️ Du stehst im Schach!' : 'Du bist am Zug!');
+  }
+
+  function flashBossScreen() {
+    const flash = el('cs-boss-flash');
+    if (!flash) return;
+    flash.classList.remove('hidden');
+    setTimeout(() => flash.classList.add('hidden'), 400);
+  }
+
+  function estimateEval() {
+    // Positive = player ahead, negative = boss ahead
+    let score = 0;
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const p = bossGS.board[r][f];
+      if (p !== EMPTY) score += p > 0 ? PIECE_VALUES[Math.abs(p)] : -PIECE_VALUES[Math.abs(p)];
+    }
+    return bossPlayerColor === WHITE ? score : -score;
+  }
+
+  function updateEvalBar(evalScore) {
+    const pct   = Math.min(90, Math.max(10, 50 + evalScore / 20));
+    const white = el('cs-eval-white');
+    if (white) white.style.width = pct + '%';
+    const label = el('cs-eval-label');
+    if (label) {
+      if (evalScore > 150)      label.textContent = '✅ Du führst deutlich';
+      else if (evalScore > 50)  label.textContent = '⬆ Kleiner Vorteil';
+      else if (evalScore < -150)label.textContent = '⚠️ Gegner führt deutlich';
+      else if (evalScore < -50) label.textContent = '⬇ Leichter Nachteil';
+      else                      label.textContent = '⚖️ Ausgeglichen';
+    }
+  }
+
+  function setBossStatus(txt) {
+    const el2 = el('cs-boss-status');
+    if (el2) el2.textContent = txt;
+  }
+
+  function showBossTaunt(boss) {
+    const taunts = boss.taunts || [];
+    if (!taunts.length) return;
+    const t = taunts[Math.floor(Math.random() * taunts.length)];
+    setHtml('cs-boss-dialog', `<div class="cs-boss-bubble">
+      <span class="cs-boss-bava">${boss.icon}</span>
+      <div class="cs-boss-btxt">${t}</div>
+    </div>`);
+  }
+
+  function addBossMove(txt) {
+    const list = el('cs-boss-moves');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.textContent = txt;
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function endBossGame(won, act, stalemate = false) {
+    const boss = act.boss;
+    activateView();
+    ['cs-map','cs-intro','cs-minimission','cs-weakness','cs-result','cs-boss'].forEach(hide);
+    show('cs-act-complete');
+
+    if (won) {
+      if (CS.settings.sound) SOUNDS.levelUp?.() || SOUNDS.correct();
+      awardXP(act.xpBonus);
+      saveActRes(act.id, { completed:true, beatAt: new Date().toISOString().slice(0,10) });
+      updateStreak();
+      checkAndUnlock(boss.achievementId);
+      const aIdx = CHESS_STORY_ACTS.indexOf(act);
+      if (aIdx === 0) checkAndUnlock('cs_act1');
+      if (aIdx === 1) checkAndUnlock('cs_act2');
+      if (aIdx === 2) checkAndUnlock('cs_act3');
+      if (bossCaptures.black === 0) checkAndUnlock('cs_nodmg');
+      saveChessState();
+
+      setText('cs-act-icon', boss.icon);
+      setText('cs-act-title', `${act.title} – Abgeschlossen!`);
+      setHtml('cs-act-sub', boss.victory.map(m => `<b>${m.n}:</b> ${m.t}`).join('<br>'));
+      setText('cs-act-xp', `🎉 +${act.xpBonus} XP`);
+
+      const nextAct = CHESS_STORY_ACTS[CHESS_STORY_ACTS.indexOf(act) + 1];
+      setHtml('cs-act-actions', `
+        ${nextAct ? `<button class="btn-primary" id="cs-next-act">▶ Nächster Akt: ${nextAct.title}</button>` : `<span class="btn-primary" style="cursor:default">🏆 Schach-Akademie abgeschlossen!</span>`}
+        <button class="btn-ghost" id="cs-act-map">← Zurück zur Karte</button>
+      `);
+      el('cs-next-act')?.addEventListener('click', () => { currentActIdx = CHESS_STORY_ACTS.indexOf(act)+1; showMap(); });
+      el('cs-act-map')?.addEventListener('click', showMap);
+    } else {
+      setText('cs-act-icon', stalemate ? '🤝' : '💥');
+      setText('cs-act-title', stalemate ? 'Patt – Remis!' : 'Niederlage!');
+      setText('cs-act-sub', stalemate ? 'Patt – kein Gewinner. Versuche es nochmal!' : (boss.defeat[0]?.t || 'Der Gegner war stärker.'));
+      setText('cs-act-xp', '');
+      setHtml('cs-act-actions', `
+        <button class="btn-primary" id="cs-retry-boss">↺ Boss nochmal</button>
+        <button class="btn-ghost"   id="cs-act-map2">← Karte</button>
+      `);
+      el('cs-retry-boss')?.addEventListener('click', () => startBossIntro(act));
+      el('cs-act-map2')?.addEventListener('click', showMap);
+    }
+  }
+
+  /* ── Hook into showView for chess-story ── */
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-view]');
+    if (btn?.dataset.view === 'chess-story') {
+      e.stopImmediatePropagation();
+      showMap();
+    }
+  }, true);
+
+  /* ── Hook lesson/puzzle completion back to story ── */
+  /* Called from btn-back-lesson; also watch for puzzle solve */
+
+  return { showMap, onChapterComplete };
+})();

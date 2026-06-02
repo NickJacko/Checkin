@@ -242,6 +242,7 @@ const DEFAULT_STATE = {
   raceWins: 0, racesPlayed: 0,
   profile: { name: '', avatar: '🐣', setupDone: false },
   settings: { theme: 'dark', backspace: true, keyboard: true, fingerLegend: true, sound: true, fontSize: 18 },
+  story: { chapterResults: {} },
 };
 
 let STATE = {};
@@ -253,6 +254,7 @@ function loadState() {
       STATE = { ...DEFAULT_STATE, ...JSON.parse(raw) };
       STATE.settings = { ...DEFAULT_STATE.settings, ...STATE.settings };
       STATE.profile  = { ...DEFAULT_STATE.profile,  ...STATE.profile  };
+      STATE.story    = { ...DEFAULT_STATE.story,    ...(STATE.story || {}) };
     } else {
       STATE = JSON.parse(JSON.stringify(DEFAULT_STATE));
     }
@@ -1551,6 +1553,7 @@ function showView(name) {
   if (name === 'achievements') renderAchievements();
   if (name === 'leaderboard')  subscribeLeaderboard(currentLbType);
   if (name === 'multiplayer')  { loadPublicRooms(); }
+  if (name === 'story')        { if (typeof Story !== 'undefined') Story.showMap(); }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2436,3 +2439,1144 @@ function drawSparkline() {
   ctx.fillStyle = '#7c6cf8';
   ctx.fill();
 }
+
+/* ═══════════════════════════════════════════════════════
+   STORY MODE — Full Version
+   3 Acts · Mini Battles · Boss Fights · Difficulty System
+═══════════════════════════════════════════════════════ */
+
+/* ── Story Achievements ── */
+[
+  {id:'story_first',  icon:'🏢', title:'Erster Einsatz',      desc:'Story Kapitel 1 abgeschlossen'},
+  {id:'story_act1',   icon:'🎖', title:'Operation KeyForce',  desc:'Akt 1 vollständig abgeschlossen'},
+  {id:'story_act2',   icon:'🌐', title:'Cyber-Jäger',         desc:'Akt 2 vollständig abgeschlossen'},
+  {id:'story_act3',   icon:'⚡', title:'Final Protocol',      desc:'Alle 3 Akte abgeschlossen'},
+  {id:'story_boss1',  icon:'🦠', title:'Alpha besiegt!',      desc:'CTRL-Virus Alpha besiegt'},
+  {id:'story_boss2',  icon:'💀', title:'Beta besiegt!',       desc:'CTRL-Virus Beta besiegt'},
+  {id:'story_boss3',  icon:'🏆', title:'Virus-Vernichter',    desc:'CTRL-Virus Omega besiegt'},
+  {id:'story_elite',  icon:'💎', title:'Elite-Agent',         desc:'Kapitel auf Elite abgeschlossen'},
+  {id:'story_nodmg',  icon:'🛡', title:'Unberührt',           desc:'Boss ohne Schaden besiegt'},
+  {id:'story_daily',  icon:'📁', title:'Geheimakte',          desc:'Tägliche Story-Challenge abgeschlossen'},
+].forEach(a => { if (!ACHIEVEMENTS_DEF.find(x => x.id === a.id)) ACHIEVEMENTS_DEF.push(a); });
+
+
+const STORY_ACTS = [
+/* ══════════════ ACT 1: Operation KeyForce ══════════════ */
+{ id:'act1', title:'Operation KeyForce', icon:'🏢', accent:'#4fc3f7',
+  desc:'Heimreihe bis Wörter – werde zum Rekruten',
+  chapters:[
+    { id:'a1c1', num:'1-1', title:'Ankunft im Büro', icon:'🏢',
+      story:'Es ist Montag 8 Uhr. Die Tipp-Agentur KeyForce hat dich eingeladen. Dein Mentor Prof. Keystroke wartet.',
+      intro:[
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Willkommen bei KeyForce! Ich bin Prof. Keystroke, dein Mentor.'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Deine Grundreihe: A-S-D-F links, J-K-L-Ö rechts. Das ist dein Fundament!'},
+      ],
+      mbs:[
+        {id:'a1c1m1',enemy:'Türwächter-Virus',ei:'🤖',text:'asdf jklö fdsa öljk',time:22,
+         win:'Türwächter ausgeschaltet! Weg frei.',lose:'Virus blockiert den Eingang – nochmal!'},
+        {id:'a1c1m2',enemy:'Scanner-Drone',ei:'🦾',text:'asdf jklö asdf jklö fda',time:22,
+         win:'Scanner überlistet! Durchgang erlaubt.',lose:'Scanner-Alarm! Rückzug.'},
+      ],
+      challenge:'asdf jklö fdsa öljk dalf jfkl fjdk saldo flask alsd öflj asdf jklö fjs',
+      weakText:'aaa sss ddd fff jjj kkk lll ööö asdf jklö fdsa öljk asdf jklö asdf jklö',
+      keys:['a','s','d','f','j','k','l','ö'],
+      success:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Ausgezeichnet! Die Heimreihe sitzt. Du bist ein Naturtalent!'}],
+      fail:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Noch nicht ganz. Die Grundreihe ist das Fundament – nochmal!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Fast! Diese Tasten brauchen noch Übung. Schnelles Nachtraining!'}],
+      diff:{rekrut:{minWpm:6,minAcc:78,xp:50},agent:{minWpm:9,minAcc:83,xp:70},elite:{minWpm:16,minAcc:90,xp:100}},
+    },
+    { id:'a1c2', num:'1-2', title:'Erste Signale', icon:'📡',
+      story:'Ein verschlüsseltes Signal wird abgefangen. Es verwendet die obere Tastenreihe – Q bis P.',
+      intro:[
+        {a:'💻',n:'Terminal',t:'SIGNAL EMPFANGEN. Zeichen: q-w-e-r-t-z-u-i-o-p. Dekodierung läuft...'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Die obere Reihe! Q-W-E-R-T links, Z-U-I-O-P rechts. Tippe das Signal!'},
+      ],
+      mbs:[
+        {id:'a1c2m1',enemy:'Radar-Blocker',ei:'📡',text:'qwer zuiop rewq poiuz',time:22,
+         win:'Radar überlistet! Signal klar.',lose:'Radar-Interferenz – retry!'},
+        {id:'a1c2m2',enemy:'Signal-Jammer',ei:'📻',text:'quiz power quiet port top',time:22,
+         win:'Jammer ausgeschaltet! Volles Signal.',lose:'Jammer aktiv – nochmal!'},
+      ],
+      challenge:'qwer zuiop rewq poiuz wir pro per wie wo top ruf quiz power quiet qwert',
+      weakText:'qqq www eee rrr ttt zzz uuu iii ooo ppp qwer zuiop rewq poiuz quiz power',
+      keys:['q','w','e','r','t','z','u','i','o','p'],
+      success:[{a:'💻',n:'Terminal',t:'SIGNAL DEKODIERT. Exzellente Fingerarbeit, Agent.'}],
+      fail:[{a:'💻',n:'Terminal',t:'DEKODIERUNG FEHLGESCHLAGEN. Obere Reihe instabil. Retry.'}],
+      weakness:[{a:'💻',n:'Terminal',t:'PARTIELLE DEKODIERUNG. Kalibrierung der Fehltasten erforderlich.'}],
+      diff:{rekrut:{minWpm:7,minAcc:79,xp:55},agent:{minWpm:11,minAcc:84,xp:75},elite:{minWpm:18,minAcc:91,xp:110}},
+    },
+    { id:'a1c3', num:'1-3', title:'Unterdeckt', icon:'🕵️',
+      story:'Du infiltrierst das Feind-Netzwerk. Der Zugangscode liegt in der untersten Tastenreihe.',
+      intro:[
+        {a:'🕵️',n:'Agent R',t:'Pssst! Ich bin Agent R. Du bist jetzt undercover.'},
+        {a:'🕵️',n:'Agent R',t:'Der Code liegt in der Unterreihe: Y-X-C-V-B links und N-M rechts. Kein Fehler!'},
+      ],
+      mbs:[
+        {id:'a1c3m1',enemy:'Untergrund-Bot',ei:'🤖',text:'yxcv bnm vxcy mnb move',time:22,
+         win:'Bot ausgeschaltet! Weg frei.',lose:'Bot-Alarm! Versteck dich!'},
+        {id:'a1c3m2',enemy:'Tunnel-Wächter',ei:'🛡️',text:'nexus voxel zebra mixen boxen',time:22,
+         win:'Wächter überwältigt!',lose:'Erwischt! Nochmal.'},
+      ],
+      challenge:'yxcv bnm vxcy mnb bewegung voxel nexus zebra mixen boxen byte cyber mix',
+      weakText:'yyy xxx ccc vvv bbb nnn mmm yxcv bnm vxcy mnb yxcv bnm bewegung voxel',
+      keys:['y','x','c','v','b','n','m'],
+      success:[{a:'🕵️',n:'Agent R',t:'Zugang gewährt! Code perfekt eingegeben. Mission erfüllt!'}],
+      fail:[{a:'🕵️',n:'Agent R',t:'Falscher Code! Alarm fast ausgelöst. Retry!'}],
+      weakness:[{a:'🕵️',n:'Agent R',t:'Fast! Manche Tasten brauchen noch Feinschliff.'}],
+      diff:{rekrut:{minWpm:7,minAcc:79,xp:55},agent:{minWpm:11,minAcc:84,xp:75},elite:{minWpm:18,minAcc:91,xp:110}},
+    },
+    { id:'a1c4', num:'1-4', title:'Die Botschaft', icon:'📜',
+      story:'Feinde kommunizieren in echten Wörtern. Nur wer fließend tippen kann, entschlüsselt die Nachricht.',
+      intro:[
+        {a:'📜',n:'Botschaft',t:'GEHEIMTEXT: das und in zu den ist auch von nicht mit dem sind bei auf...'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Echte Wörter jetzt! Fließend tippen ist der Schlüssel.'},
+      ],
+      mbs:[
+        {id:'a1c4m1',enemy:'Wort-Filter',ei:'📝',text:'das und die der nicht mit',time:20,
+         win:'Filter überwunden! Worte fließen.',lose:'Filter aktiv – Worte geblockt.'},
+        {id:'a1c4m2',enemy:'Satz-Blocker',ei:'🚫',text:'wir haben eine wichtige Aufgabe',time:22,
+         win:'Blocker umgangen! Volle Botschaft.',lose:'Blocker hält stand – nochmal!'},
+      ],
+      challenge:'das und in zu den ist auch von nicht mit dem sind bei auf noch werden als',
+      weakText:'das die und der nicht mit den ist auch von bei auf noch als so werden sie',
+      keys:['a','s','d','n','i','c','h','t','e','r','u','g'],
+      success:[{a:'📜',n:'Botschaft',t:'BOTSCHAFT ENTSCHLÜSSELT. Exzellente Arbeit, Agent!'}],
+      fail:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Noch zu viele Fehler. Konzentration – nochmal!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Fast! Einige Schlüsselwörter bereiten noch Schwierigkeiten.'}],
+      diff:{rekrut:{minWpm:9,minAcc:80,xp:65},agent:{minWpm:14,minAcc:86,xp:85},elite:{minWpm:22,minAcc:92,xp:120}},
+    },
+  ],
+  boss:{
+    id:'boss_act1',name:'CTRL-Virus Alpha',icon:'🦠',
+    text:'asdf jklö qwer zuiop yxcv bnm das und die der nicht mit dem sind bei auf noch',
+    intro:[
+      {a:'🦠',n:'CTRL-Virus α',t:'HAHAHA! Du bist in meiner Falle! Ich bin CTRL-Virus Alpha!'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'Der Virus nutzt alle Grundlagen. Tippe schnell und präzise!'},
+    ],
+    victory:[
+      {a:'🦠',n:'CTRL-Virus α',t:'U-Unmöglich... Ich... werde... zurückkehren...'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'🎉 BRILLIANT! Du hast Alpha besiegt! Akt 1 abgeschlossen!'},
+    ],
+    defeat:[{a:'🦠',n:'CTRL-Virus α',t:'HAHAHA! Du warst nicht schnell genug! RETRY!'}],
+    achievementId:'story_boss1',
+    diff:{rekrut:{attackInterval:14,attackDmg:8,errorDmg:1.5},agent:{attackInterval:9,attackDmg:12,errorDmg:2},elite:{attackInterval:5,attackDmg:18,errorDmg:3}},
+  },
+  xpBonus:200,
+},
+/* ══════════════ ACT 2: Cyber Hunt ══════════════ */
+{ id:'act2', title:'Cyber Hunt', icon:'🌐', accent:'#ce93d8',
+  desc:'Großbuchstaben, Zahlen und Sonderzeichen – jage den Virus',
+  unlockRequires:'act1',
+  chapters:[
+    { id:'a2c1', num:'2-1', title:'Großalarm', icon:'🚨',
+      story:'ALARM! Das feindliche System aktiviert einen Großbuchstaben-Schutzschild. Shift-Taste meistern!',
+      intro:[
+        {a:'🚨',n:'Alarmsystem',t:'ALARM! Feindliches Netzwerk aktiviert GROSSBUCHSTABEN-SCHUTZ!'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Shift-Taste: links für rechte Hand, rechts für linke. Tippe die Codewörter exakt!'},
+      ],
+      mbs:[
+        {id:'a2c1m1',enemy:'Shift-Wächter',ei:'⇧',text:'Berlin Hamburg München',time:22,
+         win:'Shift-Wächter besiegt! Groß-Schutz fällt.',lose:'Shift-Fehler! Alarm wird lauter.'},
+        {id:'a2c1m2',enemy:'Name-Encoder',ei:'🔡',text:'Anna Klaus Ute Peter Max',time:22,
+         win:'Encoder überwunden! Namen dekodiert.',lose:'Encoder aktiv – retry!'},
+      ],
+      challenge:'Berlin Hamburg München Das Wetter ist schön Die Sonne scheint Anna Klaus',
+      weakText:'Berlin Hamburg München Frankfurt Das Die Der Ein Eine Wer Wie Was Anna Klaus',
+      keys:['B','H','M','F','D','W','S','A','K','E','N'],
+      success:[{a:'🚨',n:'Alarmsystem',t:'SCHUTZSCHILD DEAKTIVIERT. Passwort akzeptiert!'}],
+      fail:[{a:'🚨',n:'Alarmsystem',t:'PASSWORT ABGELEHNT. Großschreibung fehlerhaft. Retry!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Die Shift-Taste macht noch Probleme. Kurze Übung hilft!'}],
+      diff:{rekrut:{minWpm:9,minAcc:81,xp:65},agent:{minWpm:14,minAcc:86,xp:90},elite:{minWpm:22,minAcc:92,xp:130}},
+    },
+    { id:'a2c2', num:'2-2', title:'Zahlencode', icon:'🔐',
+      story:'Der Hauptserver ist verriegelt! Nur der richtige Zahlencode öffnet ihn.',
+      intro:[
+        {a:'🔐',n:'Server',t:'AUTHENTIFIZIERUNG ERFORDERLICH. Zugangscode: Zahlen plus Name.'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Zahlenreihe: 1-2-3-4-5 links, 6-7-8-9-0 rechts. Entspannt bleiben!'},
+      ],
+      mbs:[
+        {id:'a2c2m1',enemy:'Nummer-Lock',ei:'🔢',text:'12345 67890 54321',time:20,
+         win:'Nummer-Lock geknackt! Zahlen fließen.',lose:'Lock hält! Falsche Zahlen.'},
+        {id:'a2c2m2',enemy:'Code-Wall',ei:'🧱',text:'42 100 2024 365 1337',time:20,
+         win:'Code-Wall durchbrochen! Zugang fast frei.',lose:'Wall steht! Nochmal.'},
+      ],
+      challenge:'1234567890 42 100 2024 365 Im Jahr 2024 gab es 365 Tage Preis 19 Euro',
+      weakText:'111 222 333 444 555 666 777 888 999 000 12345 67890 1234567890 42 100',
+      keys:['1','2','3','4','5','6','7','8','9','0'],
+      success:[{a:'🔐',n:'Server',t:'ZUGANG GEWÄHRT. Zahlencode korrekt eingegeben.'}],
+      fail:[{a:'🔐',n:'Server',t:'ZUGANG VERWEIGERT. Code fehlerhaft. Retry.'}],
+      weakness:[{a:'🔐',n:'Server',t:'Eingabefehler erkannt. Zahlen-Kalibrierung notwendig.'}],
+      diff:{rekrut:{minWpm:9,minAcc:80,xp:65},agent:{minWpm:14,minAcc:85,xp:90},elite:{minWpm:22,minAcc:92,xp:130}},
+    },
+    { id:'a2c3', num:'2-3', title:'Cyber-Labyrinth', icon:'🌀',
+      story:'Das Virus hat sich im Cyber-Labyrinth versteckt. Sonderzeichen und Symbole sind der Schlüssel.',
+      intro:[
+        {a:'🌀',n:'Labyrinth-KI',t:'Du bist im Cyber-Labyrinth gefangen. Nur Symbole öffnen die Türen.'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Punkt, Komma, Fragezeichen, Ausrufezeichen. Tippe präzise!'},
+      ],
+      mbs:[
+        {id:'a2c3m1',enemy:'Symbol-Bot',ei:'⚙️',text:'Wie geht es dir? Sehr gut!',time:22,
+         win:'Symbol-Bot überlistet! Tür öffnet sich.',lose:'Falsches Symbol! Tür bleibt zu.'},
+        {id:'a2c3m2',enemy:'Sonder-Guard',ei:'🔣',text:'Das ist wichtig. Wirklich!',time:22,
+         win:'Guard besiegt! Weg ins Netzwerk frei.',lose:'Guard hält! Zeichen falsch.'},
+      ],
+      challenge:'Wie geht es dir? Sehr gut! Das ist wichtig. Wirklich? Ja, natürlich!',
+      weakText:'Wie geht es? Gut! Was machst du? Toll! Das ist wichtig. Sicher? Ja!',
+      keys:['.', ',', '?', '!'],
+      success:[{a:'🌀',n:'Labyrinth-KI',t:'AUSGANG GEFUNDEN. Symbole meisterhaft genutzt!'}],
+      fail:[{a:'🌀',n:'Labyrinth-KI',t:'SACKGASSE. Zeichen fehlerhaft. Neuer Versuch.'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Satzzeichen brauchen noch Übung. Kurzes Training!'}],
+      diff:{rekrut:{minWpm:10,minAcc:82,xp:70},agent:{minWpm:15,minAcc:87,xp:95},elite:{minWpm:24,minAcc:93,xp:135}},
+    },
+    { id:'a2c4', num:'2-4', title:'Datenstrom', icon:'💫',
+      story:'Das Virus flieht durch den Datenstrom. Nur schnelles, fließendes Tippen kann es einholen!',
+      intro:[
+        {a:'💫',n:'Datenstrom',t:'VIRUS FLIEHT durch den Datenstrom! Geschwindigkeit ist jetzt alles!'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Zeig mir deine echte Geschwindigkeit! Fließender Text, keine Pausen.'},
+      ],
+      mbs:[
+        {id:'a2c4m1',enemy:'Speed-Checker',ei:'⚡',text:'schnell flink agil zügig rasch',time:18,
+         win:'Speed-Check bestanden! Tempo perfekt.',lose:'Zu langsam! Geschwindigkeit erhöhen.'},
+        {id:'a2c4m2',enemy:'Flow-Tester',ei:'🌊',text:'Übung macht den Meister täglich',time:20,
+         win:'Flow-Test bestanden! Datenstrom gehört dir.',lose:'Flow unterbrochen. Nochmal!'},
+      ],
+      challenge:'der fortschritt kommt nicht über nacht sondern durch beharrlichkeit und übung',
+      weakText:'das wir haben heute eine wichtige Aufgabe schnell flink agil direkt fix',
+      keys:['e','r','t','n','s','a','i','o','h','d'],
+      success:[{a:'💫',n:'Datenstrom',t:'VIRUS EINGEHOLT! Du bist dem Datenstrom gewachsen!'}],
+      fail:[{a:'💫',n:'Datenstrom',t:'Virus entkommen. Zu langsam. Nochmal!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Einige Häufigkeitstasten bereiten Probleme. Kurztraining!'}],
+      diff:{rekrut:{minWpm:12,minAcc:82,xp:75},agent:{minWpm:18,minAcc:87,xp:100},elite:{minWpm:28,minAcc:93,xp:140}},
+    },
+  ],
+  boss:{
+    id:'boss_act2',name:'CTRL-Virus Beta',icon:'💀',
+    text:'Berlin Hamburg 2024 Wie geht es dir? Sehr gut! schnell flink das wir nicht',
+    intro:[
+      {a:'💀',n:'CTRL-Virus β',t:'Du hast Alpha besiegt? Ich, Beta, bin zehnmal stärker!'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'Beta nutzt Großbuchstaben, Zahlen und Symbole. Sei bereit!'},
+    ],
+    victory:[
+      {a:'💀',n:'CTRL-Virus β',t:'Wie... das ist unmöglich...'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'🎉 Beta besiegt! Akt 2 ist Geschichte. Du bist ein echter Agent!'},
+    ],
+    defeat:[{a:'💀',n:'CTRL-Virus β',t:'HAHAHAHA! Beta lässt sich nicht so leicht besiegen!'}],
+    achievementId:'story_boss2',
+    diff:{rekrut:{attackInterval:12,attackDmg:10,errorDmg:2},agent:{attackInterval:7,attackDmg:14,errorDmg:2.5},elite:{attackInterval:4,attackDmg:20,errorDmg:4}},
+  },
+  xpBonus:300,
+},
+/* ══════════════ ACT 3: Final Protocol ══════════════ */
+{ id:'act3', title:'Final Protocol', icon:'⚡', accent:'#fff176',
+  desc:'Geschwindigkeit, Ausdauer und das finale Showdown',
+  unlockRequires:'act2',
+  chapters:[
+    { id:'a3c1', num:'3-1', title:'Code-Sequenz', icon:'💻',
+      story:'Das Virus versteckt sich im Code. Nur wer Programmiersprachen tippen kann, findet es.',
+      intro:[
+        {a:'💻',n:'Code-Terminal',t:'Virus-Signatur gefunden in: const x = virus.run(); Tippe den Code!'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Programmiersyntax! Klammern, Punkte, Gleichheitszeichen. Konzentration!'},
+      ],
+      mbs:[
+        {id:'a3c1m1',enemy:'Syntax-Checker',ei:'🔍',text:'const x = 42; return x;',time:22,
+         win:'Syntax korrekt! Code kompiliert.',lose:'Syntax-Fehler! Code bricht ab.'},
+        {id:'a3c1m2',enemy:'Logic-Guard',ei:'🧮',text:'if (x > 0) { return true; }',time:22,
+         win:'Logic-Guard überwunden! Zugang zum Virus.',lose:'Logic-Fehler! Guard aktiviert.'},
+      ],
+      challenge:'const name = "Max"; if (x > 0) { return true; } function hello() { }',
+      weakText:'const x = 0; let y = x + 1; if (y > 0) return true; else return false;',
+      keys:['(',')','{','}',';','=','>','<','+','"'],
+      success:[{a:'💻',n:'Code-Terminal',t:'KOMPILIERUNG ERFOLGREICH. Virus-Signatur isoliert!'}],
+      fail:[{a:'💻',n:'Code-Terminal',t:'KOMPILIERUNGSFEHLER. Syntax-Probleme. Retry.'}],
+      weakness:[{a:'💻',n:'Code-Terminal',t:'Spezialzeichen machen Probleme. Training aktiviert.'}],
+      diff:{rekrut:{minWpm:10,minAcc:82,xp:80},agent:{minWpm:16,minAcc:87,xp:110},elite:{minWpm:26,minAcc:93,xp:150}},
+    },
+    { id:'a3c2', num:'3-2', title:'Hochgeschwindigkeit', icon:'🚀',
+      story:'Das Virus flieht mit maximaler Geschwindigkeit. Nur absolute Schnelligkeit kann es stoppen!',
+      intro:[
+        {a:'🚀',n:'Speed-Monitor',t:'VIRUS-GESCHWINDIGKEIT: KRITISCH. Du musst schneller werden!'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Speed-Run! Tippo so schnell du kannst. Präzision bleibt wichtig.'},
+      ],
+      mbs:[
+        {id:'a3c2m1',enemy:'Speed-Bot Alpha',ei:'⚡',text:'fix rasch zügig prompt flink',time:15,
+         win:'Speed-Bot Alpha besiegt! Geschwindigkeit passt.',lose:'Zu langsam! Alpha entwischt.'},
+        {id:'a3c2m2',enemy:'Speed-Bot Beta',ei:'🏎️',text:'schnell direkt agil exakt klar',time:15,
+         win:'Speed-Bot Beta besiegt! Volle Kraft.',lose:'Beta entkommen! Mehr Tempo!'},
+      ],
+      challenge:'schnell flink agil zügig rasch prompt direkt fix exakt präzise klar sicher',
+      weakText:'schnell flink agil zügig rasch direkt fix exakt präzise klar sicher flott',
+      keys:['s','c','h','n','e','l','f','i','k','a','g'],
+      success:[{a:'🚀',n:'Speed-Monitor',t:'GESCHWINDIGKEIT KRITISCH. Virus gestellt!'}],
+      fail:[{a:'🚀',n:'Speed-Monitor',t:'NICHT SCHNELL GENUG. Virus entkommen. Retry!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Einige Buchstaben verlangsamen dich. Gezieltes Training!'}],
+      diff:{rekrut:{minWpm:14,minAcc:83,xp:85},agent:{minWpm:22,minAcc:88,xp:115},elite:{minWpm:35,minAcc:93,xp:160}},
+    },
+    { id:'a3c3', num:'3-3', title:'Herz des Netzwerks', icon:'🌐',
+      story:'Du hast das Herz des feindlichen Netzwerks erreicht. Nur Ausdauer und Präzision zählen jetzt.',
+      intro:[
+        {a:'🌐',n:'Netzwerk-Kern',t:'Du hast das Herz des Netzwerks gefunden. Langer Text steht bevor.'},
+        {a:'🧑‍💻',n:'Prof. Keystroke',t:'Ausdauer und Genauigkeit! Dies ist dein letzter Test vor dem Boss.'},
+      ],
+      mbs:[
+        {id:'a3c3m1',enemy:'Ausdauer-Test 1',ei:'🏃',text:'das regelmäßige Üben führt zum Ziel',time:25,
+         win:'Ausdauer-Test 1 bestanden! Weiter.',lose:'Konzentration verloren! Nochmal.'},
+        {id:'a3c3m2',enemy:'Ausdauer-Test 2',ei:'🏋️',text:'wer täglich trainiert wird mit Zeit besser',time:25,
+         win:'Ausdauer-Test 2 bestanden! Fast da.',lose:'Durchhaltevermögen fehlt noch! Retry.'},
+      ],
+      challenge:'Das regelmäßige Üben ist der Schlüssel zum Erfolg. Wer täglich trainiert wird schnell besser.',
+      weakText:'das und die der nicht mehr aber nur auch noch zum zur mit von wir haben heute',
+      keys:['a','e','i','o','u','s','t','n','r','g','h','l'],
+      success:[{a:'🌐',n:'Netzwerk-Kern',t:'NETZWERK KONTROLLIERT. Du bist bereit für den letzten Boss!'}],
+      fail:[{a:'🌐',n:'Netzwerk-Kern',t:'Kontrolle verloren. Netzwerk reagiert. Retry!'}],
+      weakness:[{a:'🧑‍💻',n:'Prof. Keystroke',t:'Einige Tasten bremsen den Fluss. Kurztraining aktiviert.'}],
+      diff:{rekrut:{minWpm:14,minAcc:84,xp:90},agent:{minWpm:20,minAcc:89,xp:120},elite:{minWpm:32,minAcc:94,xp:170}},
+    },
+  ],
+  boss:{
+    id:'boss_act3',name:'CTRL-Virus Omega',icon:'👾',
+    text:'CTRL-Virus Omega: Das regelmäßige Üben ist der Schlüssel! Berlin 2024 const x = run(); fix!',
+    intro:[
+      {a:'👾',n:'CTRL-Virus Ω',t:'Du hast meine Untergebenen besiegt. Aber ICH bin Omega – die finale Form!'},
+      {a:'👾',n:'CTRL-Virus Ω',t:'Kein Mensch tippt schnell genug um mich zu besiegen! NIEMALS!'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'Das ist es! Zeig alles was du gelernt hast. Für KeyForce!'},
+    ],
+    victory:[
+      {a:'👾',n:'CTRL-Virus Ω',t:'Noooooo! Unmöglich! Dieser... Tipp-Agent... ist unaufhaltsam!'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'🏆 DU HAST ES GESCHAFFT! Omega besiegt! Du bist ein legendärer Tipp-Agent!'},
+      {a:'🧑‍💻',n:'Prof. Keystroke',t:'KeyForce ist gerettet. Die Welt kann wieder schnell tippen. Danke, Agent!'},
+    ],
+    defeat:[{a:'👾',n:'CTRL-Virus Ω',t:'HAHAHAHAHA! Omega ist unbesiegbar! Versuche es nochmal!'}],
+    achievementId:'story_boss3',
+    diff:{rekrut:{attackInterval:10,attackDmg:12,errorDmg:2.5},agent:{attackInterval:6,attackDmg:16,errorDmg:3},elite:{attackInterval:3,attackDmg:22,errorDmg:5}},
+  },
+  xpBonus:500,
+},
+];
+
+/* ── DAILY STORY CHALLENGES ── */
+const DAILY_STORY_CHALLENGES = [
+  {text:'das und in zu den ist',title:'Geheimakte: Montag',sub:'Grundlagen-Code'},
+  {text:'qwer zuiop wir wie pro',title:'Geheimakte: Dienstag',sub:'Signal-Fragment'},
+  {text:'yxcv bnm nexus voxel',title:'Geheimakte: Mittwoch',sub:'Untergrund-Signal'},
+  {text:'Berlin Hamburg 2024 gut',title:'Geheimakte: Donnerstag',sub:'Stadt-Code'},
+  {text:'schnell flink agil zügig',title:'Geheimakte: Freitag',sub:'Speed-Protokoll'},
+  {text:'Wie geht es? Sehr gut!',title:'Geheimakte: Samstag',sub:'Kommunikations-Code'},
+  {text:'const x = 42; return x;',title:'Geheimakte: Sonntag',sub:'System-Befehl'},
+];
+
+/* ══════════════════════════════════════════════════════
+   STORY MODULE
+══════════════════════════════════════════════════════ */
+const Story = (() => {
+  /* ── state ── */
+  let activeAct     = null;
+  let activeChapter = null;
+  let activeDiff    = 'agent';
+  let mbIdx         = 0;        // current mini-battle index
+  let dialogQueue   = [];
+  let dialogIdx     = 0;
+  let isTypingDialog = false;
+  let errorSnapshot  = null;
+  let weakKeysFound  = [];
+  let lastStats      = null;
+  let isWeaknessRun  = false;
+  let bossTimers     = [];
+  let mbTimerRef     = null;
+  let mbDone         = false;
+  let bossPlayerHp   = 100;
+  let bossBossHp     = 100;
+  let bossNoDamage   = true;
+  let currentActIdx  = 0;
+
+  /* ── DOM helpers ── */
+  const el    = id => document.getElementById(id);
+  const hide  = id => { const e = el(id); if (e) e.classList.add('hidden'); };
+  const show  = id => { const e = el(id); if (e) e.classList.remove('hidden'); };
+  const html  = (id, h) => { const e = el(id); if (e) e.innerHTML = h; };
+
+  function activateView() {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    el('view-story')?.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelector('.nav-item[data-view="story"]')?.classList.add('active');
+    currentView = 'story';
+    closeSidebar();
+  }
+
+  /* ── persistence ── */
+  function ss() {
+    if (!STATE.story) STATE.story = { chapterResults:{}, actResults:{}, difficulty:'agent' };
+    return STATE.story;
+  }
+  function getRes(id)     { return ss().chapterResults[id] || null; }
+  function saveRes(id, d) { ss().chapterResults[id] = d; saveState(); }
+  function getActRes(id)  { return ss().actResults?.[id] || null; }
+  function saveActRes(id,d){ if (!ss().actResults) ss().actResults = {}; ss().actResults[id]=d; saveState(); }
+
+  /* ── unlock logic ── */
+  function actUnlocked(act) {
+    if (!act.unlockRequires) return true;
+    const req = STORY_ACTS.find(a => a.id === act.unlockRequires);
+    return req ? !!getActRes(req.id)?.completed : false;
+  }
+  function chUnlocked(act, chIdx) {
+    if (!actUnlocked(act)) return false;
+    if (chIdx === 0) return true;
+    return !!getRes(act.chapters[chIdx-1].id)?.completed;
+  }
+  function bossUnlocked(act) {
+    return actUnlocked(act) && act.chapters.every(c => !!getRes(c.id)?.completed);
+  }
+  function totalDone() {
+    let n = 0;
+    STORY_ACTS.forEach(a => {
+      a.chapters.forEach(c => { if (getRes(c.id)?.completed) n++; });
+      if (getActRes(a.id)?.completed) n++;
+    });
+    return n;
+  }
+  function totalNodes() { return STORY_ACTS.reduce((s,a) => s + a.chapters.length + 1, 0); }
+
+  function calcStars(wpm, acc, diff) {
+    const d = diff || {};
+    if (acc >= 95 && wpm >= (d.minWpm||10) * 1.6) return 3;
+    if (acc >= 90 && wpm >= (d.minWpm||10) * 1.2) return 2;
+    return 1;
+  }
+
+  /* ══ WORLD MAP ══ */
+  function showMap() {
+    activateView();
+    ['story-difficulty','story-intro','story-minibattle','story-boss',
+     'story-result','story-act-complete','story-weakness'].forEach(hide);
+    show('story-map');
+    renderTabs();
+    renderPath(currentActIdx);
+    renderDailyWidget();
+  }
+
+  function renderTabs() {
+    const tabs = el('story-acts-tabs');
+    if (!tabs) return;
+    tabs.innerHTML = STORY_ACTS.map((a, i) => {
+      const done    = !!getActRes(a.id)?.completed;
+      const locked  = !actUnlocked(a);
+      const cls     = ['sact-tab', i === currentActIdx ? 'active' : '', locked ? 'locked-tab' : ''].join(' ');
+      return `<button class="${cls}" data-act-idx="${i}">
+        ${a.icon} ${a.title}${done ? ' <span class="sact-check">✓</span>' : ''}
+      </button>`;
+    }).join('');
+    tabs.querySelectorAll('[data-act-idx]').forEach(btn => {
+      const idx = +btn.dataset.actIdx;
+      if (STORY_ACTS[idx] && actUnlocked(STORY_ACTS[idx])) {
+        btn.addEventListener('click', () => { currentActIdx = idx; renderTabs(); renderPath(idx); });
+      }
+    });
+  }
+
+  function renderPath(actIdx) {
+    const act  = STORY_ACTS[actIdx];
+    const wrap = el('story-world-path');
+    if (!act || !wrap) return;
+
+    let html = '<div class="swp-inner">';
+    act.chapters.forEach((ch, i) => {
+      const res      = getRes(ch.id);
+      const unlocked = chUnlocked(act, i);
+      const done     = !!res?.completed;
+      const isNext   = unlocked && !done;
+      const s        = res?.stars || 0;
+      const cirCls   = ['swp-circle', done?'done':'', isNext?'next':'', !unlocked?'locked':''].join(' ');
+      const nodeCls  = ['swp-node', done?'done':'', isNext?'next':'', !unlocked?'locked':''].join(' ');
+      const stars    = done ? '⭐'.repeat(s) + '☆'.repeat(3-s) : '☆☆☆';
+      html += `<div class="${nodeCls}" data-ch-id="${ch.id}" data-ch-act="${actIdx}">
+        <div class="${cirCls}">${ch.icon}</div>
+        <div class="swp-stars">${stars}</div>
+        <div class="swp-label">${ch.title}</div>
+      </div>`;
+      const connDone = done && act.chapters[i+1] && getRes(act.chapters[i+1].id)?.completed;
+      html += `<div class="swp-connector${done?'done':''}"></div>`;
+    });
+    // Boss node
+    const bUnlocked = bossUnlocked(act);
+    const bDone     = !!getActRes(act.id)?.completed;
+    const bNext     = bUnlocked && !bDone;
+    const bCls = ['swp-circle boss-node', bDone?'done':'', bNext?'next':'', !bUnlocked?'locked':''].join(' ');
+    const bNodeCls = ['swp-node', bDone?'done':'', bNext?'next':'', !bUnlocked?'locked':''].join(' ');
+    html += `<div class="${bNodeCls}" data-boss-act="${actIdx}">
+      <div class="${bCls}">${act.boss.icon}</div>
+      <div class="swp-stars">${bDone ? '💀' : bUnlocked ? '⚠️' : '🔒'}</div>
+      <div class="swp-label">${act.boss.name}</div>
+    </div>`;
+    html += '</div>';
+    wrap.innerHTML = html;
+
+    // Bind clicks
+    wrap.querySelectorAll('[data-ch-id]').forEach(node => {
+      const id     = node.dataset.chId;
+      const aIdx   = +node.dataset.chAct;
+      const act2   = STORY_ACTS[aIdx];
+      const chIdx  = act2.chapters.findIndex(c => c.id === id);
+      if (chUnlocked(act2, chIdx)) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', () => startDifficultySelect(act2, act2.chapters[chIdx]));
+      }
+    });
+    wrap.querySelectorAll('[data-boss-act]').forEach(node => {
+      const aIdx = +node.dataset.bossAct;
+      const act2 = STORY_ACTS[aIdx];
+      if (bossUnlocked(act2)) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', () => startBossIntro(act2));
+      }
+    });
+  }
+
+  /* ── Daily Widget ── */
+  function renderDailyWidget() {
+    const wrap = el('story-daily-widget');
+    if (!wrap) return;
+    const today = todayStr();
+    const dc    = ss().dailyStory;
+    const done  = dc?.date === today && dc?.done;
+    const dow   = new Date().getDay();
+    const ch    = DAILY_STORY_CHALLENGES[dow];
+    wrap.innerHTML = `<div class="story-daily-card" id="story-daily-btn">
+      <div class="story-daily-title">📁 ${ch.title}</div>
+      <div class="story-daily-sub">${ch.sub}</div>
+      ${done ? '<div class="story-daily-done">✅ Heute erledigt</div>' : '<div class="story-daily-sub">45s · Extra XP</div>'}
+    </div>`;
+    el('story-daily-btn')?.addEventListener('click', () => {
+      if (!done) startDailyChallenge();
+    });
+  }
+
+  function startDailyChallenge() {
+    const dow  = new Date().getDay();
+    const ch   = DAILY_STORY_CHALLENGES[dow];
+    errorSnapshot = { ...STATE.errorMap };
+    setEl('training-title', ch.title);
+    setEl('training-mode-badge', '📁 Geheimakte');
+    setStyle('training-progress', 'width', '0%');
+    showView('training');
+    Engine.setup(ch.text + ' ' + ch.text + ' ' + ch.text, null, 'normal', {
+      onComplete: stats => {
+        const today = todayStr();
+        ss().dailyStory = { date: today, done: true };
+        addXP(40);
+        saveState();
+        checkAchievement('story_daily', true);
+        showView('story');
+      }
+    });
+    setEl('ls-time', '0:00');
+    focusInput();
+  }
+
+  /* ══ DIFFICULTY SELECT ══ */
+  function startDifficultySelect(act, chapter) {
+    activeAct     = act;
+    activeChapter = chapter;
+    activateView();
+    ['story-map','story-intro','story-minibattle','story-boss',
+     'story-result','story-act-complete','story-weakness'].forEach(hide);
+    show('story-difficulty');
+
+    const res = getRes(chapter.id);
+    html('story-diff-header', `
+      <span class="story-chapter-icon">${chapter.icon}</span>
+      <div>
+        <div class="story-chapter-sub">${chapter.num}</div>
+        <div class="story-chapter-name">${chapter.title}</div>
+      </div>
+      ${res?.completed ? `<span style="margin-left:auto;color:var(--green);font-size:.8rem">✅ Bestes: ${res.bestWpm} WPM</span>` : ''}
+    `);
+
+    const d = chapter.diff;
+    html('story-diff-cards', [
+      {key:'rekrut',name:'Rekrut',icon:'🐣',color:'#69f0ae',
+       req:`${d.rekrut.minWpm} WPM · ${d.rekrut.minAcc}% Genauigkeit`,xp:d.rekrut.xp},
+      {key:'agent', name:'Agent', icon:'🕵️',color:'var(--accent)',
+       req:`${d.agent.minWpm} WPM · ${d.agent.minAcc}% Genauigkeit`, xp:d.agent.xp},
+      {key:'elite', name:'Elite', icon:'💎',color:'#ef9a9a',
+       req:`${d.elite.minWpm} WPM · ${d.elite.minAcc}% Genauigkeit`, xp:d.elite.xp},
+    ].map(opt => `
+      <div class="diff-card diff-${opt.key}" data-diff="${opt.key}">
+        <span class="diff-icon">${opt.icon}</span>
+        <div class="diff-name" style="color:${opt.color}">${opt.name}</div>
+        <div class="diff-req">${opt.req}</div>
+        <div class="diff-xp">+${opt.xp} XP</div>
+      </div>
+    `).join(''));
+
+    el('story-btn-diff-back').onclick = showMap;
+    el('story-diff-cards').querySelectorAll('[data-diff]').forEach(card => {
+      card.addEventListener('click', () => {
+        activeDiff = card.dataset.diff;
+        startChapterIntro();
+      });
+    });
+  }
+
+  /* ══ CHAPTER INTRO ══ */
+  function startChapterIntro() {
+    activateView();
+    ['story-difficulty','story-minibattle','story-boss',
+     'story-result','story-act-complete','story-weakness','story-map'].forEach(hide);
+    show('story-intro');
+
+    const ch    = activeChapter;
+    const dName = {rekrut:'🐣 Rekrut',agent:'🕵️ Agent',elite:'💎 Elite'}[activeDiff];
+    html('story-banner', `
+      <span class="story-chapter-icon">${ch.icon}</span>
+      <div style="flex:1">
+        <div class="story-chapter-sub">${ch.num}</div>
+        <div class="story-chapter-name">${ch.title}</div>
+      </div>
+      <span class="story-diff-badge">${dName}</span>
+    `);
+    setEl('story-narrative', ch.story);
+
+    dialogQueue = ch.intro;
+    dialogIdx   = 0;
+    isTypingDialog = false;
+    el('story-btn-next').onclick  = nextDialog;
+    el('story-btn-skip').onclick  = () => startMiniBattles();
+    showDialogMsg(dialogQueue[0]);
+  }
+
+  function showDialogMsg(msg) {
+    if (!msg) return;
+    setEl('story-dialog-speaker', `${msg.a} ${msg.n}`);
+    const textEl = el('story-dialog-text');
+    if (!textEl) return;
+    textEl.textContent = '';
+    show('story-dialog-dots');
+    isTypingDialog = true;
+    let i = 0;
+    const iv = setInterval(() => {
+      if (i < msg.t.length) { textEl.textContent += msg.t[i++]; }
+      else { clearInterval(iv); hide('story-dialog-dots'); isTypingDialog = false; }
+    }, 25);
+  }
+
+  function nextDialog() {
+    if (isTypingDialog) {
+      const msg = dialogQueue[dialogIdx];
+      if (msg) { setEl('story-dialog-text', msg.t); hide('story-dialog-dots'); isTypingDialog = false; }
+      return;
+    }
+    dialogIdx++;
+    if (dialogIdx < dialogQueue.length) showDialogMsg(dialogQueue[dialogIdx]);
+    else startMiniBattles();
+  }
+
+  /* ══ MINI BATTLES ══ */
+  function startMiniBattles() {
+    mbIdx = 0;
+    startOneMb();
+  }
+
+  function startOneMb() {
+    const ch = activeChapter;
+    if (mbIdx >= ch.mbs.length) { launchChallenge(); return; }
+    const mb = ch.mbs[mbIdx];
+
+    activateView();
+    ['story-intro','story-difficulty','story-boss','story-result',
+     'story-act-complete','story-weakness','story-map'].forEach(hide);
+    show('story-minibattle');
+
+    html('mb-header-row',
+      `<strong>${ch.num}: ${ch.title}</strong> – Kampf ${mbIdx+1} von ${ch.mbs.length}`);
+    setEl('mb-enemy-name', mb.enemy);
+    html('mb-enemy-avatar', mb.ei);
+    setEl('mb-instruction', `⚔️ Tippe den Text um ${mb.enemy} zu besiegen!`);
+    hide('mb-result-line');
+
+    mbDone = false;
+    runMbTyping(mb);
+  }
+
+  function renderBtText(containerId, text, pos) {
+    const e = el(containerId);
+    if (!e) return;
+    e.innerHTML = text.split('').map((ch, i) => {
+      if (i < pos) return `<span class="bchar done">${ch === ' ' ? '&nbsp;' : escHtml(ch)}</span>`;
+      if (i === pos) return `<span class="bchar cursor">${ch === ' ' ? '&nbsp;' : escHtml(ch)}</span>`;
+      return `<span class="bchar">${ch === ' ' ? '&nbsp;' : escHtml(ch)}</span>`;
+    }).join('');
+  }
+
+  function setMbHp(enemyPct, playerPct) {
+    const ef = el('mb-enemy-hp'), pf = el('mb-player-hp');
+    if (ef) ef.style.width = Math.max(0, enemyPct) + '%';
+    if (pf) pf.style.width = Math.max(0, playerPct) + '%';
+    setEl('mb-enemy-pct', Math.max(0, Math.round(enemyPct)) + '%');
+    setEl('mb-player-pct', Math.max(0, Math.round(playerPct)) + '%');
+  }
+
+  function runMbTyping(mb) {
+    const text = mb.text;
+    let pos = 0, playerHp = 100, errors = 0;
+    let timeLeft = mb.time || 20;
+
+    renderBtText('mb-text-display', text, pos);
+    setMbHp(100, 100);
+    setEl('mb-timer', timeLeft);
+    el('mb-timer')?.classList.remove('urgent');
+
+    const timerEl = el('mb-timer');
+    clearInterval(mbTimerRef);
+    mbTimerRef = setInterval(() => {
+      if (mbDone) { clearInterval(mbTimerRef); return; }
+      timeLeft--;
+      if (timerEl) { timerEl.textContent = timeLeft; if (timeLeft <= 5) timerEl.classList.add('urgent'); }
+      if (timeLeft <= 0) { clearInterval(mbTimerRef); endMb(false, mb); }
+    }, 1000);
+
+    const inp = el('mb-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+
+    function onInput(e) {
+      if (mbDone) return;
+      const char = e.data;
+      if (!char) return;
+      if (inp) inp.value = '';
+      if (pos >= text.length) return;
+
+      const expected = text[pos];
+      if (char === expected) {
+        pos++;
+        const enemyHp = 100 - Math.round((pos / text.length) * 100);
+        setMbHp(enemyHp, playerHp);
+        if (pos >= text.length) { clearInterval(mbTimerRef); endMb(true, mb); return; }
+      } else {
+        errors++;
+        playerHp = Math.max(0, playerHp - 8);
+        setMbHp(100 - Math.round((pos / text.length) * 100), playerHp);
+        el('mb-text-display')?.classList.add('shake');
+        setTimeout(() => el('mb-text-display')?.classList.remove('shake'), 250);
+        if (playerHp <= 0) { clearInterval(mbTimerRef); endMb(false, mb); return; }
+      }
+      renderBtText('mb-text-display', text, pos);
+    }
+
+    if (inp) { inp.removeEventListener('input', inp._storyHandler || (() => {})); inp._storyHandler = onInput; inp.addEventListener('input', onInput); }
+  }
+
+  function endMb(won, mb) {
+    if (mbDone) return;
+    mbDone = true;
+    clearInterval(mbTimerRef);
+
+    const resultEl = el('mb-result-line');
+    if (resultEl) {
+      resultEl.className = 'mb-result-line ' + (won ? 'win' : 'lose');
+      resultEl.textContent = won ? '✅ ' + mb.win : '❌ ' + mb.lose;
+      resultEl.classList.remove('hidden');
+    }
+    if (won) SFX?.correct?.(); else SFX?.wrong?.();
+
+    setTimeout(() => {
+      if (won) { mbIdx++; startOneMb(); }
+      else     { mbIdx = 0; startOneMb(); } // restart mini battles on fail
+    }, 1400);
+  }
+
+  /* ══ CHAPTER CHALLENGE ══ */
+  function launchChallenge() {
+    isWeaknessRun = false;
+    weakKeysFound = [];
+    errorSnapshot = { ...STATE.errorMap };
+
+    const ch   = activeChapter;
+    const diff = ch.diff[activeDiff] || ch.diff.agent;
+    setEl('training-title', `${ch.icon} ${ch.title}`);
+    setEl('training-mode-badge', {rekrut:'🐣 Rekrut',agent:'🕵️ Agent',elite:'💎 Elite'}[activeDiff]);
+    setStyle('training-progress', 'width', '0%');
+    showView('training');
+    Engine.setup(ch.challenge, null, 'normal', { onComplete: onChallengeDone });
+    setEl('ls-time', '0:00');
+    focusInput();
+  }
+
+  function launchWeaknessChallenge() {
+    isWeaknessRun = true;
+    errorSnapshot = { ...STATE.errorMap };
+    const ch = activeChapter;
+    setEl('training-title', `${ch.icon} ${ch.title} – Schwächentraining`);
+    setEl('training-mode-badge', '🎯 Schwächen');
+    setStyle('training-progress', 'width', '0%');
+    showView('training');
+    Engine.setup(ch.weakText, null, 'normal', { onComplete: onChallengeDone });
+    setEl('ls-time', '0:00');
+    focusInput();
+  }
+
+  /* ══ AFTER CHALLENGE ══ */
+  function onChallengeDone(stats) {
+    lastStats = stats;
+    const ch   = activeChapter;
+    if (!ch) return;
+
+    const today = todayStr();
+    STATE.activityLog[today] = (STATE.activityLog[today] || 0) + 1;
+    STATE.wpmHistory.push({ val: stats.wpm, date: today });
+    STATE.accHistory.push({ val: stats.acc, date: today });
+    if (stats.wpm > (STATE.highscores?.wpm || 0)) STATE.highscores.wpm = stats.wpm;
+    if (stats.acc > (STATE.highscores?.acc || 0)) STATE.highscores.acc = stats.acc;
+
+    const diff   = ch.diff[activeDiff] || ch.diff.agent;
+    const passed = stats.wpm >= diff.minWpm && stats.acc >= diff.minAcc;
+
+    if (!isWeaknessRun && passed) weakKeysFound = detectWeak(ch.keys);
+
+    showChapterResult(stats, passed);
+  }
+
+  function detectWeak(focusKeys) {
+    if (!focusKeys || !errorSnapshot) return [];
+    return focusKeys.filter(k => {
+      const lk  = k.toLowerCase();
+      const now  = (STATE.errorMap[lk] || 0) + (STATE.errorMap[k] || 0);
+      const prev = (errorSnapshot[lk] || 0) + (errorSnapshot[k] || 0);
+      return (now - prev) >= 3;
+    });
+  }
+
+  /* ══ CHAPTER RESULT ══ */
+  function showChapterResult(stats, passed) {
+    activateView();
+    ['story-map','story-intro','story-minibattle','story-boss',
+     'story-act-complete','story-weakness'].forEach(hide);
+    show('story-result');
+
+    const ch       = activeChapter;
+    const diff     = ch.diff[activeDiff] || ch.diff.agent;
+    const s        = calcStars(stats.wpm, stats.acc, diff);
+    const needsWeak = passed && !isWeaknessRun && weakKeysFound.length > 0;
+    const isFullDone = passed && (!needsWeak || isWeaknessRun);
+
+    const msgs = isWeaknessRun ? ch.success : (passed ? ch.success : ch.fail);
+    html('story-result-dialog', `<div class="sresult-dialog">${msgs.map(m => `
+      <div class="sresult-bubble">
+        <span class="sresult-ava">${m.a}</span>
+        <div class="sresult-msg-wrap">
+          <div class="sresult-speaker">${m.n}</div>
+          <div class="sresult-msg">${m.t}</div>
+        </div>
+      </div>`).join('')}</div>`);
+
+    const pColor = passed ? 'var(--green)' : '#ef4444';
+    html('story-result-stats', `
+      <div class="story-stat-pill"><span class="story-stat-val">${stats.wpm}</span><span class="story-stat-lbl">WPM</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val" style="color:${pColor}">${stats.acc}%</span><span class="story-stat-lbl">Genauigkeit</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${stats.errors}</span><span class="story-stat-lbl">Fehler</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${passed ? '⭐'.repeat(s)+'☆'.repeat(3-s) : '❌'}</span><span class="story-stat-lbl">${passed?'Sterne':'Status'}</span></div>
+    `);
+
+    let actionsHtml = '';
+    if (!passed) {
+      actionsHtml = `<button class="btn-primary" id="sr-retry">↺ Nochmal versuchen</button>
+                     <button class="btn-ghost"   id="sr-map">← Karte</button>`;
+    } else if (needsWeak) {
+      actionsHtml = `<button class="btn-primary" id="sr-weak">🎯 Schwächentraining</button>
+                     <button class="btn-ghost"   id="sr-skip-weak">Weiter ohne Training ▶</button>`;
+    } else {
+      // Save chapter complete
+      const existing = getRes(ch.id);
+      saveRes(ch.id, {
+        completed: true,
+        stars: Math.max(s, existing?.stars || 0),
+        bestWpm: Math.max(stats.wpm, existing?.bestWpm || 0),
+        bestAcc: Math.max(stats.acc, existing?.bestAcc || 0),
+      });
+      addXP(diff.xp);
+      updateStreak();
+      checkAllAchievements({ ...stats, text: ch.challenge });
+      checkAchievement('story_first', true);
+      if (activeDiff === 'elite') checkAchievement('story_elite', true);
+      if (stats.errors === 0)    checkAchievement('story_perfect', true);
+      saveState();
+      if (s === 3) setTimeout(launchConfetti, 300);
+
+      const actIdx  = STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === ch.id));
+      const act     = STORY_ACTS[actIdx];
+      const chIdx   = act.chapters.findIndex(c => c.id === ch.id);
+      const nextCh  = act.chapters[chIdx + 1];
+      const allDone = act.chapters.every(c => !!getRes(c.id)?.completed);
+
+      if (allDone) {
+        actionsHtml = `<button class="btn-primary" id="sr-boss">⚔️ Boss kämpfen!</button>
+                       <button class="btn-ghost"   id="sr-map2">← Karte</button>`;
+      } else if (nextCh) {
+        actionsHtml = `<button class="btn-primary" id="sr-next">Nächstes Kapitel ▶</button>
+                       <button class="btn-ghost"   id="sr-map2">← Karte</button>`;
+      } else {
+        actionsHtml = `<button class="btn-ghost" id="sr-map2">← Karte</button>`;
+      }
+    }
+    html('story-result-actions', actionsHtml);
+
+    el('sr-retry')?.addEventListener('click', () => startDifficultySelect(activeAct, activeChapter));
+    el('sr-map')?.addEventListener('click', showMap);
+    el('sr-map2')?.addEventListener('click', showMap);
+    el('sr-weak')?.addEventListener('click', showWeaknessScreen);
+    el('sr-skip-weak')?.addEventListener('click', () => {
+      isWeaknessRun = true; weakKeysFound = [];
+      onChallengeDone({ ...lastStats });
+    });
+    el('sr-next')?.addEventListener('click', () => {
+      const actIdx = STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === activeChapter.id));
+      const act    = STORY_ACTS[actIdx];
+      const chIdx  = act.chapters.findIndex(c => c.id === activeChapter.id);
+      if (act.chapters[chIdx+1]) startDifficultySelect(act, act.chapters[chIdx+1]);
+      else showMap();
+    });
+    el('sr-boss')?.addEventListener('click', () => {
+      const actIdx = STORY_ACTS.findIndex(a => a.chapters.some(c => c.id === activeChapter.id));
+      startBossIntro(STORY_ACTS[actIdx]);
+    });
+  }
+
+  /* ══ WEAKNESS SCREEN ══ */
+  function showWeaknessScreen() {
+    activateView();
+    ['story-map','story-intro','story-result','story-minibattle',
+     'story-boss','story-act-complete'].forEach(hide);
+    show('story-weakness');
+
+    const ch = activeChapter;
+    setEl('story-weakness-desc',
+      `Prof. Keystroke hat Schwächen bei diesen Tasten erkannt. ` +
+      `Tippe den Übungstext und erreiche ${ch.diff[activeDiff]?.minAcc || 85}% Genauigkeit.`);
+    html('story-weak-keys', weakKeysFound.map(k => `<span class="story-weak-key">${k}</span>`).join(''));
+
+    const msgs = ch.weakness;
+    html('story-weakness-dialog', `<div class="sresult-dialog" style="margin-top:.5rem">${msgs.map(m => `
+      <div class="sresult-bubble">
+        <span class="sresult-ava">${m.a}</span>
+        <div class="sresult-msg-wrap">
+          <div class="sresult-speaker">${m.n}</div>
+          <div class="sresult-msg">${m.t}</div>
+        </div>
+      </div>`).join('')}</div>`);
+
+    el('story-btn-weakness-start').onclick = launchWeaknessChallenge;
+  }
+
+  /* ══ BOSS INTRO ══ */
+  function startBossIntro(act) {
+    activeAct = act;
+    activateView();
+    ['story-map','story-result','story-weakness','story-act-complete',
+     'story-minibattle','story-difficulty'].forEach(hide);
+    show('story-intro');
+
+    const boss = act.boss;
+    html('story-banner', `
+      <span class="story-chapter-icon">${boss.icon}</span>
+      <div style="flex:1">
+        <div class="story-chapter-sub">Boss-Kampf · Akt ${STORY_ACTS.indexOf(act)+1}</div>
+        <div class="story-chapter-name">${boss.name}</div>
+      </div>
+      <span class="story-diff-badge" style="color:#f59e0b">⚠️ Boss!</span>
+    `);
+    setEl('story-narrative', `Der finale Gegner von ${act.title} erwartet dich!`);
+
+    dialogQueue = boss.intro;
+    dialogIdx   = 0;
+    isTypingDialog = false;
+    el('story-btn-next').onclick  = nextBossDialog;
+    el('story-btn-skip').onclick  = () => launchBoss(act);
+    showDialogMsg(dialogQueue[0]);
+  }
+
+  function nextBossDialog() {
+    if (isTypingDialog) {
+      const msg = dialogQueue[dialogIdx];
+      if (msg) { setEl('story-dialog-text', msg.t); hide('story-dialog-dots'); isTypingDialog = false; }
+      return;
+    }
+    dialogIdx++;
+    if (dialogIdx < dialogQueue.length) showDialogMsg(dialogQueue[dialogIdx]);
+    else launchBoss(activeAct);
+  }
+
+  /* ══ BOSS BATTLE ══ */
+  function launchBoss(act) {
+    activeAct = act;
+    const boss  = act.boss;
+    const dCfg  = boss.diff[activeDiff] || boss.diff.agent;
+
+    activateView();
+    ['story-map','story-intro','story-result','story-weakness',
+     'story-act-complete','story-minibattle'].forEach(hide);
+    show('story-boss');
+
+    bossPlayerHp = 100;
+    bossBossHp   = 100;
+    bossNoDamage = true;
+    bossTimers.forEach(clearTimeout); bossTimers = [];
+
+    setEl('boss-name', boss.name);
+    html('boss-avatar', boss.icon);
+    html('boss-dialog-row', '');
+    hide('boss-attack-warn');
+    hide('boss-flash-overlay');
+
+    updateBossHpBars();
+
+    // Boss attack function
+    function bossAttack() {
+      if (bossBossHp <= 0 || bossPlayerHp <= 0) return;
+      bossPlayerHp = Math.max(0, bossPlayerHp - dCfg.attackDmg);
+      bossNoDamage = false;
+      updateBossHpBars();
+
+      show('boss-attack-warn');
+      show('boss-flash-overlay');
+      SFX?.wrong?.();
+      setTimeout(() => { hide('boss-attack-warn'); hide('boss-flash-overlay'); }, 600);
+
+      // Boss taunts
+      const taunts = ['Du kannst mich nicht aufhalten!','Zu langsam!','HAHAHA!','Meine Angriffe sind unaufhaltsam!'];
+      const t = taunts[Math.floor(Math.random() * taunts.length)];
+      html('boss-dialog-row', `<div class="boss-bubble">
+        <span class="boss-bubble-ava">${boss.icon}</span>
+        <div class="boss-bubble-txt">${t}</div>
+      </div>`);
+
+      if (bossPlayerHp <= 0) { endBoss(false, act); return; }
+      const tid = setTimeout(bossAttack, dCfg.attackInterval * 1000);
+      bossTimers.push(tid);
+    }
+
+    const firstAttack = setTimeout(bossAttack, dCfg.attackInterval * 1000);
+    bossTimers.push(firstAttack);
+
+    // Boss typing
+    const text = boss.text;
+    let pos = 0;
+    renderBtText('boss-text-display', text, pos);
+
+    const inp = el('boss-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+
+    function onBossInput(e) {
+      if (bossBossHp <= 0 || bossPlayerHp <= 0) return;
+      const char = e.data;
+      if (!char) return;
+      if (inp) inp.value = '';
+      if (pos >= text.length) return;
+
+      const expected = text[pos];
+      if (char === expected) {
+        pos++;
+        bossBossHp = Math.max(0, 100 - Math.round((pos / text.length) * 100));
+        updateBossHpBars();
+        if (pos >= text.length || bossBossHp <= 0) {
+          bossTimers.forEach(clearTimeout); bossTimers = [];
+          endBoss(true, act);
+          return;
+        }
+      } else {
+        bossPlayerHp = Math.max(0, bossPlayerHp - dCfg.errorDmg);
+        bossNoDamage = false;
+        updateBossHpBars();
+        el('boss-text-display')?.classList.add('shake');
+        setTimeout(() => el('boss-text-display')?.classList.remove('shake'), 250);
+        if (bossPlayerHp <= 0) {
+          bossTimers.forEach(clearTimeout); bossTimers = [];
+          endBoss(false, act);
+          return;
+        }
+      }
+      renderBtText('boss-text-display', text, pos);
+    }
+
+    if (inp) { inp.removeEventListener('input', inp._bossHandler || (() => {})); inp._bossHandler = onBossInput; inp.addEventListener('input', onBossInput); }
+  }
+
+  function updateBossHpBars() {
+    const bf = el('boss-hp-fill'), pf = el('player-hp-fill');
+    if (bf) bf.style.width = Math.max(0, bossBossHp) + '%';
+    if (pf) pf.style.width = Math.max(0, bossPlayerHp) + '%';
+    setEl('boss-hp-val', Math.max(0, Math.round(bossBossHp)) + '%');
+    setEl('player-hp-val', Math.max(0, Math.round(bossPlayerHp)) + '%');
+    if (bf && bossBossHp < 25) bf.style.background = '#ef4444';
+    if (pf && bossPlayerHp < 25) pf.style.background = 'linear-gradient(90deg,#ef4444,#f59e0b)';
+  }
+
+  function endBoss(won, act) {
+    bossTimers.forEach(clearTimeout); bossTimers = [];
+    const boss = act.boss;
+
+    activateView();
+    ['story-map','story-intro','story-minibattle','story-weakness','story-result'].forEach(hide);
+    show('story-act-complete');
+
+    if (won) {
+      launchConfetti();
+      SFX?.correct?.();
+      const xpReward = act.xpBonus + (bossNoDamage ? 100 : 0);
+      addXP(xpReward);
+      saveActRes(act.id, { completed: true, bossBeatenAt: todayStr() });
+      updateStreak(); saveState();
+      checkAchievement(boss.achievementId, true);
+      if (bossNoDamage) checkAchievement('story_nodmg', true);
+      const actIdx = STORY_ACTS.indexOf(act);
+      if (actIdx === 0) checkAchievement('story_act1', true);
+      if (actIdx === 1) checkAchievement('story_act2', true);
+      if (actIdx === 2) checkAchievement('story_act3', true);
+
+      setEl('act-complete-icon', boss.icon);
+      setEl('act-complete-title', `${act.title} – Abgeschlossen!`);
+      setEl('act-complete-sub', boss.victory.map(m => `<b>${m.n}:</b> ${m.t}`).join('<br>'));
+      html('act-complete-xp', `🎉 +${xpReward} XP${bossNoDamage ? ' (BONUS: Kein Schaden!)' : ''}`);
+
+      const nextAct = STORY_ACTS[STORY_ACTS.indexOf(act) + 1];
+      html('act-complete-actions', `
+        ${nextAct ? `<button class="btn-primary" id="ac-next-act">▶ Nächster Akt: ${nextAct.title}</button>` : `<span class="btn-primary" style="cursor:default">🏆 Alle Akte abgeschlossen!</span>`}
+        <button class="btn-ghost" id="ac-map">← Zurück zur Karte</button>
+      `);
+      el('ac-next-act')?.addEventListener('click', () => {
+        currentActIdx = STORY_ACTS.indexOf(act) + 1;
+        showMap();
+      });
+      el('ac-map')?.addEventListener('click', showMap);
+    } else {
+      SFX?.wrong?.();
+      setEl('act-complete-icon', '💥');
+      setEl('act-complete-title', 'Niederlage!');
+      setEl('act-complete-sub', boss.defeat[0]?.t || 'Der Boss war zu stark. Versuche es nochmal!');
+      html('act-complete-xp', '');
+      html('act-complete-actions', `
+        <button class="btn-primary" id="ac-retry-boss">↺ Boss nochmal</button>
+        <button class="btn-ghost"   id="ac-map2">← Karte</button>
+      `);
+      el('ac-retry-boss')?.addEventListener('click', () => startBossIntro(act));
+      el('ac-map2')?.addEventListener('click', showMap);
+    }
+  }
+
+  /* ── checkAchievement helper ── */
+  function checkAchievement(id, cond) {
+    if (!cond) return;
+    if (STATE.achievements?.includes(id)) return;
+    if (!STATE.achievements) STATE.achievements = [];
+    STATE.achievements.push(id);
+    const def = ACHIEVEMENTS_DEF.find(a => a.id === id);
+    if (def) showAchievementToast(def);
+  }
+
+  /* public API */
+  function startChapter(id) {
+    const act = STORY_ACTS.find(a => a.chapters.some(c => c.id === id));
+    const ch  = act?.chapters.find(c => c.id === id);
+    if (act && ch) startDifficultySelect(act, ch);
+  }
+
+  return { showMap, startChapter, renderDailyWidget };
+})();

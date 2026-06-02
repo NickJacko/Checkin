@@ -233,6 +233,7 @@
     <aside class="sidebar" id="sidebar">
       <ul class="nav-menu">
         <li><button class="nav-item active" data-view="dashboard">🏠 Dashboard</button></li>
+        <li><button class="nav-item" data-view="chess-story">🗺 Story Mode</button></li>
         <li><button class="nav-item" data-view="course">📚 Kurs</button></li>
         <li><button class="nav-item" data-view="puzzles">🧩 Puzzles</button></li>
         <li><button class="nav-item" data-view="endgames">♛ Endspiele</button></li>
@@ -256,6 +257,139 @@
 
     <!-- MAIN CONTENT -->
     <main class="main-content" id="main-content">
+
+      <!-- ════════ CHESS STORY MODE ════════ -->
+      <section class="view" id="view-chess-story">
+
+        <!-- WORLD MAP -->
+        <div id="cs-map">
+          <div class="cs-header-row">
+            <div>
+              <h2 class="cs-title-main">♟ Die Schach-Akademie</h2>
+              <p class="cs-subtitle-main">Von Neuling bis Großmeister – deine epische Schach-Reise</p>
+            </div>
+            <div id="cs-daily-widget"></div>
+          </div>
+          <div class="cs-acts-tabs" id="cs-acts-tabs"></div>
+          <div class="cs-world-path" id="cs-world-path"></div>
+          <div class="cs-map-legend">
+            <span class="csml-item"><span class="csml-dot done"></span>Abgeschlossen</span>
+            <span class="csml-item"><span class="csml-dot next"></span>Bereit</span>
+            <span class="csml-item"><span class="csml-dot locked"></span>Gesperrt</span>
+            <span class="csml-item"><span class="csml-dot boss"></span>Boss</span>
+          </div>
+        </div>
+
+        <!-- DIFFICULTY SELECT -->
+        <div id="cs-difficulty" class="cs-screen hidden">
+          <div class="cs-diff-wrap">
+            <div class="cs-diff-header" id="cs-diff-header"></div>
+            <p class="cs-diff-hint">Wähle deine Herausforderung:</p>
+            <div class="cs-diff-cards" id="cs-diff-cards"></div>
+            <button class="btn-ghost" id="cs-btn-diff-back">← Zurück zur Karte</button>
+          </div>
+        </div>
+
+        <!-- CHAPTER INTRO -->
+        <div id="cs-intro" class="cs-screen hidden">
+          <div class="cs-chapter-banner" id="cs-banner"></div>
+          <div class="cs-narrative" id="cs-narrative"></div>
+          <div class="cs-dialog-box" id="cs-dialog-box">
+            <div class="cs-dialog-speaker" id="cs-dialog-speaker"></div>
+            <div class="cs-dialog-text" id="cs-dialog-text"></div>
+            <div class="cs-dialog-dots" id="cs-dialog-dots"><span></span><span></span><span></span></div>
+          </div>
+          <div class="cs-intro-actions">
+            <button class="btn-ghost" id="cs-btn-skip">Überspringen</button>
+            <button class="btn-primary" id="cs-btn-next">Weiter ▶</button>
+          </div>
+        </div>
+
+        <!-- MINI MISSION (chess puzzle) -->
+        <div id="cs-minimission" class="cs-screen hidden">
+          <div class="cs-mm-header" id="cs-mm-header"></div>
+          <div class="cs-mm-body">
+            <div class="cs-mm-left">
+              <div class="cs-mm-task" id="cs-mm-task"></div>
+              <div class="cs-mm-board-wrap" id="cs-mm-board"></div>
+              <div class="cs-mm-timer-row">
+                <div class="cs-mm-attempts" id="cs-mm-attempts">💚💚💚</div>
+                <div class="cs-mm-timer-wrap">
+                  <div class="cs-mm-timer" id="cs-mm-timer">45</div>
+                  <span class="cs-mm-timer-lbl">Sek.</span>
+                </div>
+              </div>
+            </div>
+            <div class="cs-mm-right">
+              <div class="cs-mm-hint-box" id="cs-mm-hint-box"></div>
+              <div class="cs-mm-feedback" id="cs-mm-feedback"></div>
+              <button class="btn-ghost btn-sm cs-mm-hint-btn" id="cs-mm-hint-btn">💡 Tipp</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOSS BATTLE -->
+        <div id="cs-boss" class="cs-screen hidden">
+          <div class="cs-boss-wrap">
+            <div class="cs-boss-top">
+              <div class="cs-boss-info">
+                <span class="cs-boss-avatar" id="cs-boss-avatar">♔</span>
+                <div class="cs-boss-info-text">
+                  <div class="cs-boss-name" id="cs-boss-name">Gegner</div>
+                  <div class="cs-boss-rating" id="cs-boss-rating">Level 1</div>
+                </div>
+                <div class="cs-eval-bar-wrap">
+                  <div class="cs-eval-label" id="cs-eval-label">Ausgeglichen</div>
+                  <div class="cs-eval-bar">
+                    <div class="cs-eval-white" id="cs-eval-white" style="width:50%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="cs-boss-dialog" id="cs-boss-dialog"></div>
+            </div>
+            <div class="cs-boss-board-area">
+              <div class="cs-boss-board-wrap" id="cs-boss-board"></div>
+              <div class="cs-boss-move-log-wrap">
+                <div class="cs-boss-status" id="cs-boss-status">Weiß ist am Zug</div>
+                <div class="cs-boss-moves" id="cs-boss-moves"></div>
+                <button class="btn-danger-sm" id="cs-boss-resign" style="margin-top:.75rem">🏳 Aufgeben</button>
+              </div>
+            </div>
+          </div>
+          <div class="cs-boss-flash hidden" id="cs-boss-flash"></div>
+        </div>
+
+        <!-- CHAPTER RESULT -->
+        <div id="cs-result" class="cs-screen hidden">
+          <div class="cs-result-inner">
+            <div id="cs-result-dialog"></div>
+            <div class="cs-result-stats" id="cs-result-stats"></div>
+            <div class="cs-result-actions" id="cs-result-actions"></div>
+          </div>
+        </div>
+
+        <!-- ACT COMPLETE -->
+        <div id="cs-act-complete" class="cs-screen hidden">
+          <div class="cs-act-inner">
+            <div class="cs-act-icon" id="cs-act-icon">🏆</div>
+            <h2 class="cs-act-title" id="cs-act-title">Akt Abgeschlossen!</h2>
+            <p class="cs-act-sub" id="cs-act-sub"></p>
+            <div class="cs-act-xp" id="cs-act-xp"></div>
+            <div class="cs-act-actions" id="cs-act-actions"></div>
+          </div>
+        </div>
+
+        <!-- WEAKNESS TRAINING -->
+        <div id="cs-weakness" class="cs-screen hidden">
+          <div class="cs-weakness-inner">
+            <div class="cs-weakness-hdr"><span>🎯</span><h3>Vertiefungstraining</h3></div>
+            <p id="cs-weakness-desc"></p>
+            <div id="cs-weakness-board"></div>
+            <div class="cs-result-actions" id="cs-weakness-actions"></div>
+          </div>
+        </div>
+
+      </section>
 
       <!-- ════════ DASHBOARD ════════ -->
       <section class="view active" id="view-dashboard">

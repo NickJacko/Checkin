@@ -149,6 +149,7 @@
     <aside class="sidebar" id="sidebar">
       <ul class="nav-menu">
         <li><button class="nav-item active" data-view="dashboard">🏠 Dashboard</button></li>
+        <li><button class="nav-item" data-view="story">🗺 Story Mode</button></li>
         <li><button class="nav-item" data-view="course">📚 Kurs</button></li>
         <li><button class="nav-item" data-view="freeplay">🎯 Freies Training</button></li>
         <li><button class="nav-item" data-view="multiplayer">⚡ Multiplayer</button></li>
@@ -230,6 +231,159 @@
           <span class="quote-icon">💬</span>
           <p id="daily-quote">"Der Anfang ist die Hälfte des Ganzen."</p>
         </div>
+      </section>
+
+      <!-- ════════ STORY MODE ════════ -->
+      <section class="view" id="view-story">
+
+        <!-- WORLD MAP -->
+        <div id="story-map">
+          <div class="story-header-row">
+            <div>
+              <h2 class="story-title-main">🗺 Operation: Tastatur</h2>
+              <p class="story-subtitle-main">Werde zum legendären Tipp-Agenten</p>
+            </div>
+            <div id="story-daily-widget"></div>
+          </div>
+          <div class="story-acts-tabs" id="story-acts-tabs"></div>
+          <div class="story-world-path" id="story-world-path"></div>
+          <div class="story-map-legend">
+            <span class="sml-item"><span class="sml-dot done"></span>Abgeschlossen</span>
+            <span class="sml-item"><span class="sml-dot next"></span>Bereit</span>
+            <span class="sml-item"><span class="sml-dot locked"></span>Gesperrt</span>
+            <span class="sml-item"><span class="sml-dot boss"></span>Boss</span>
+          </div>
+        </div>
+
+        <!-- DIFFICULTY SELECT -->
+        <div id="story-difficulty" class="story-screen hidden">
+          <div class="story-diff-wrap">
+            <div class="story-diff-header" id="story-diff-header"></div>
+            <p class="story-diff-hint">Wähle deine Schwierigkeitsstufe:</p>
+            <div class="story-diff-cards" id="story-diff-cards"></div>
+            <button class="btn-ghost story-back-btn" id="story-btn-diff-back">← Zurück zur Karte</button>
+          </div>
+        </div>
+
+        <!-- CHAPTER INTRO -->
+        <div id="story-intro" class="story-screen hidden">
+          <div class="story-chapter-banner" id="story-banner">
+            <span class="story-chapter-icon" id="story-ch-icon">📜</span>
+            <div style="flex:1">
+              <div class="story-chapter-sub" id="story-ch-sub">Kapitel 1</div>
+              <div class="story-chapter-name" id="story-ch-name">Titel</div>
+            </div>
+            <span class="story-diff-badge" id="story-diff-badge">Agent</span>
+          </div>
+          <div class="story-narrative" id="story-narrative"></div>
+          <div class="story-dialog-box" id="story-dialog-box">
+            <div class="story-dialog-speaker" id="story-dialog-speaker"></div>
+            <div class="story-dialog-text" id="story-dialog-text"></div>
+            <div class="story-dialog-dots" id="story-dialog-dots"><span></span><span></span><span></span></div>
+          </div>
+          <div class="story-intro-actions">
+            <button class="btn-ghost" id="story-btn-skip">Überspringen</button>
+            <button class="btn-primary" id="story-btn-next">Weiter ▶</button>
+          </div>
+        </div>
+
+        <!-- MINI BATTLE -->
+        <div id="story-minibattle" class="story-screen hidden">
+          <div class="mb-header-row" id="mb-header-row"></div>
+          <div class="mb-arena">
+            <div class="mb-side enemy-side">
+              <div class="mb-avatar" id="mb-enemy-avatar">🤖</div>
+              <div class="mb-name" id="mb-enemy-name">Feind</div>
+              <div class="mb-hp-wrap">
+                <div class="mb-hp-bar"><div class="mb-hp-fill" id="mb-enemy-hp" style="width:100%"></div></div>
+                <span class="mb-hp-pct" id="mb-enemy-pct">100%</span>
+              </div>
+            </div>
+            <div class="mb-center">
+              <div class="mb-vs">⚔️</div>
+              <div class="mb-timer-wrap">
+                <div class="mb-timer" id="mb-timer">20</div>
+                <div class="mb-timer-lbl">Sek.</div>
+              </div>
+            </div>
+            <div class="mb-side player-side">
+              <div class="mb-avatar">🧑‍💻</div>
+              <div class="mb-name">Du</div>
+              <div class="mb-hp-wrap">
+                <div class="mb-hp-bar player"><div class="mb-hp-fill player" id="mb-player-hp" style="width:100%"></div></div>
+                <span class="mb-hp-pct" id="mb-player-pct">100%</span>
+              </div>
+            </div>
+          </div>
+          <div class="mb-text-wrap">
+            <div class="mb-instruction" id="mb-instruction">Tippe den Text um den Feind zu besiegen!</div>
+            <div class="mb-text-display" id="mb-text-display"></div>
+            <input class="mb-hidden-input" id="mb-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" />
+          </div>
+          <div class="mb-result-line hidden" id="mb-result-line"></div>
+        </div>
+
+        <!-- BOSS BATTLE -->
+        <div id="story-boss" class="story-screen hidden">
+          <div class="boss-wrap">
+            <div class="boss-top">
+              <div class="boss-info-row">
+                <span class="boss-avatar" id="boss-avatar">🦠</span>
+                <div class="boss-info-text">
+                  <div class="boss-name" id="boss-name">BOSS</div>
+                  <div class="boss-hp-track"><div class="boss-hp-fill" id="boss-hp-fill" style="width:100%"></div></div>
+                  <span class="boss-hp-val" id="boss-hp-val">100%</span>
+                </div>
+                <div class="boss-attack-warn hidden" id="boss-attack-warn">⚡ ANGRIFF!</div>
+              </div>
+              <div class="boss-dialog-row" id="boss-dialog-row"></div>
+            </div>
+            <div class="boss-battle-text">
+              <div class="boss-text-display" id="boss-text-display"></div>
+              <input class="boss-hidden-input" id="boss-input" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" />
+            </div>
+            <div class="boss-bottom">
+              <div class="boss-player-hp-row">
+                <span class="boss-player-label">❤️ Du</span>
+                <div class="boss-player-hp-track"><div class="boss-player-hp-fill" id="player-hp-fill" style="width:100%"></div></div>
+                <span class="boss-player-hp-val" id="player-hp-val">100%</span>
+              </div>
+            </div>
+          </div>
+          <div class="boss-flash-overlay hidden" id="boss-flash-overlay">⚡ ANGRIFF!</div>
+        </div>
+
+        <!-- CHAPTER RESULT -->
+        <div id="story-result" class="story-screen hidden">
+          <div class="story-result-inner">
+            <div id="story-result-dialog"></div>
+            <div class="story-result-stats" id="story-result-stats"></div>
+            <div class="story-result-actions" id="story-result-actions"></div>
+          </div>
+        </div>
+
+        <!-- ACT COMPLETE -->
+        <div id="story-act-complete" class="story-screen hidden">
+          <div class="act-complete-inner">
+            <div class="act-complete-icon" id="act-complete-icon">🏆</div>
+            <h2 class="act-complete-title" id="act-complete-title">Akt Abgeschlossen!</h2>
+            <p class="act-complete-sub" id="act-complete-sub"></p>
+            <div class="act-complete-xp" id="act-complete-xp"></div>
+            <div class="act-complete-actions" id="act-complete-actions"></div>
+          </div>
+        </div>
+
+        <!-- WEAKNESS TRAINING -->
+        <div id="story-weakness" class="story-screen hidden">
+          <div class="story-weakness-inner">
+            <div class="story-weakness-header"><span class="story-weakness-icon">🎯</span><h3>Schwächentraining</h3></div>
+            <p id="story-weakness-desc"></p>
+            <div class="story-weak-keys" id="story-weak-keys"></div>
+            <div id="story-weakness-dialog"></div>
+            <button class="btn-primary" id="story-btn-weakness-start">Training starten ▶</button>
+          </div>
+        </div>
+
       </section>
 
       <!-- ════════ COURSE ════════ -->
