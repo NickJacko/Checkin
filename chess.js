@@ -551,6 +551,8 @@ function awardXP(amount) {
   saveChessState();
   updateNavXP();
   if (newRank.level > oldRank.level) showLevelUp(newRank);
+  clearTimeout(awardXP._syncTimer);
+  awardXP._syncTimer = setTimeout(syncLeaderboard, 10000);
 }
 
 function updateNavXP() {
@@ -3262,14 +3264,7 @@ function bindLeaderboardEvents() {
   });
 }
 
-/* ── Patch awardXP to sync leaderboard ── */
-const _origAwardXP = awardXP;
-function awardXP(amount) {
-  _origAwardXP(amount);
-  /* Debounce: sync at most once per 10 s */
-  clearTimeout(awardXP._syncTimer);
-  awardXP._syncTimer = setTimeout(syncLeaderboard, 10000);
-}
+/* Sync-Logik ist jetzt direkt in awardXP integriert (siehe unten) */
 
 /* ── Override showView to use patched version ── */
 /* We can't re-assign a function declared with `function`, so we
