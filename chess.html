@@ -270,6 +270,7 @@
             </div>
             <div id="cs-daily-widget"></div>
           </div>
+          <div id="cs-map-progress" class="cs-map-progress-wrap"></div>
           <div class="cs-acts-tabs" id="cs-acts-tabs"></div>
           <div class="cs-world-path" id="cs-world-path"></div>
           <div class="cs-map-legend">
@@ -351,6 +352,7 @@
               <div class="cs-boss-board-wrap" id="cs-boss-board"></div>
               <div class="cs-boss-move-log-wrap">
                 <div class="cs-boss-status" id="cs-boss-status">Weiß ist am Zug</div>
+                <div class="cs-material-bar" id="cs-material-bar">⚖️ Ausgeglichen</div>
                 <div class="cs-boss-moves" id="cs-boss-moves"></div>
                 <button class="btn-danger-sm" id="cs-boss-resign" style="margin-top:.75rem">🏳 Aufgeben</button>
               </div>
@@ -558,6 +560,7 @@
         <div id="freeplay-game" style="display:none">
           <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
             <div class="chess-status-bar" id="freeplay-status">Weiß ist am Zug</div>
+            <button class="btn-ghost btn-sm" id="btn-fp-flip">↕ Drehen</button>
             <button class="btn-ghost btn-sm" id="btn-fp-undo">↩ Rückgängig</button>
             <button class="btn-ghost btn-sm" id="btn-fp-reset">↺ Neue Partie</button>
           </div>

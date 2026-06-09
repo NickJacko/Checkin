@@ -6,7 +6,7 @@
  *   • Offline-Fallback → index.html
  */
 
-const CACHE_NAME  = 'learnhub-v3';
+const CACHE_NAME  = 'learnhub-v7';
 const CACHE_URLS  = [
   '/',
   '/index.html',

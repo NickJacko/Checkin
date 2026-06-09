@@ -2850,9 +2850,27 @@ const Story = (() => {
     ['story-difficulty','story-intro','story-minibattle','story-boss',
      'story-result','story-act-complete','story-weakness'].forEach(hide);
     show('story-map');
+    renderStoryMapProgress();
     renderTabs();
     renderPath(currentActIdx);
     renderDailyWidget();
+  }
+
+  function renderStoryMapProgress() {
+    const wrap = el('story-map-progress');
+    if (!wrap) return;
+    const total    = STORY_ACTS.reduce((s, a) => s + a.chapters.length, 0);
+    const done     = STORY_ACTS.reduce((s, a) => s + a.chapters.filter(c => !!getRes(c.id)?.completed).length, 0);
+    const stars    = STORY_ACTS.reduce((s, a) => s + a.chapters.reduce((s2, c) => s2 + (getRes(c.id)?.stars || 0), 0), 0);
+    const maxStars = total * 3;
+    const pct      = total ? Math.round(done / total * 100) : 0;
+    if (done === 0) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
+      <div class="cs-progress-row">
+        <span class="cs-prog-lbl">Fortschritt: <b>${done}/${total} Kapitel</b></span>
+        <span class="cs-prog-stars">⭐ ${stars} / ${maxStars}</span>
+      </div>
+      <div class="cs-prog-bar-wrap"><div class="cs-prog-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent),#f59e0b)"></div></div>`;
   }
 
   function renderTabs() {
@@ -2861,9 +2879,11 @@ const Story = (() => {
     tabs.innerHTML = STORY_ACTS.map((a, i) => {
       const done    = !!getActRes(a.id)?.completed;
       const locked  = !actUnlocked(a);
+      const chDone  = a.chapters.filter(c => !!getRes(c.id)?.completed).length;
       const cls     = ['sact-tab', i === currentActIdx ? 'active' : '', locked ? 'locked-tab' : ''].join(' ');
+      const prog    = locked ? '🔒' : `${chDone}/${a.chapters.length}`;
       return `<button class="${cls}" data-act-idx="${i}">
-        ${a.icon} ${a.title}${done ? ' <span class="sact-check">✓</span>' : ''}
+        ${a.icon} ${a.title}${done ? ' <span class="sact-check">✓</span>' : ''}<span class="sact-prog">${prog}</span>
       </button>`;
     }).join('');
     tabs.querySelectorAll('[data-act-idx]').forEach(btn => {

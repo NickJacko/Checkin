@@ -138,49 +138,100 @@ function getBestMoveAndEval(gs,depth){
 
 /* ── SVG CHESS PIECES ─────────────────────────────────────────────── */
 function getPieceSVG(type, isWhite) {
-  const F  = isWhite ? '#f5f0e8' : '#282018';
-  const S  = isWhite ? '#3a2810' : '#d4b880';
-  const F2 = isWhite ? '#ccc0a8' : '#484030';
-  const wrap = (b) =>
+  // White: warm ivory fill, dark brown outlines, gold details
+  // Black: near-black fill, golden outlines, amber highlights
+  const F  = isWhite ? '#F9F0DC' : '#1E140E';
+  const S  = isWhite ? '#7B4413' : '#D4A832';
+  const D  = isWhite ? '#C8A060' : '#6B4818';
+  const HL = isWhite ? '#FFFFFF' : '#F0C040';
+
+  const w = (body) =>
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45" class="psvg">` +
-    `<g fill="${F}" stroke="${S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${b}</g></svg>`;
+    `<g fill="${F}" stroke="${S}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">` +
+    body + `</g></svg>`;
+
   switch (type) {
-    case PAWN: return wrap(
-      `<circle cx="22.5" cy="10.5" r="5.5"/>` +
-      `<path d="M14.5,39.5h16l-1.5-5.5h-13z"/>` +
-      `<path d="M15.5,34c0-7,2.5-11,3.5-13s1.5-3.5,3.5-3.5,2.5,1.5,3.5,3.5,3.5,6,3.5,13"/>`);
-    case ROOK: return wrap(
-      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
-      `<rect x="11.5" y="14" width="22" height="22.5" rx="1"/>` +
-      `<path d="M10.5,14v-5.5h5v2.5h5v-2.5h5v2.5h5v-2.5h5v5.5z"/>` +
-      `<line x1="11.5" y1="26" x2="33.5" y2="26" stroke="${F2}" stroke-width="1"/>`);
-    case KNIGHT: return wrap(
-      `<path d="M22,10c10.5,1,16.5,8,16,29H15c0-9,9-7,8-21"/>` +
-      `<path d="M24,18c.38,2.91-5.55,7.37-8,9-3,2-2.82,4.34-5,4-1.042-.94,1.41-3.04,0-3-1,0,.19,1.23-1,2-1,0-4.003,1-4-4,0-2,6-12,6-12s1.89-1.9,2-3.5c-.73-.994-.5-2-.5-3,1-1,3,2.5,3,2.5h2s.78-1.992,2.5-3c1,0,1,3,1,3"/>` +
-      `<circle cx="19" cy="12" r="1.5" fill="${F2}" stroke="${F2}"/>` +
-      `<path d="M14,17l2,2c0,0,.8-2-.5-2.5" fill="${F2}" stroke="${F2}" stroke-width="0.5"/>`);
-    case BISHOP: return wrap(
-      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
-      `<path d="M11,36c0-4,3-6.5,11.5-6.5S34,32,34,36"/>` +
-      `<path d="M15.5,29.5c0-8,3-12,7-17.5,4,5.5,7,9.5,7,17.5"/>` +
-      `<circle cx="22.5" cy="10" r="3.5"/>` +
-      `<path d="M20.5,10h4M22.5,8v4" stroke="${F2}" stroke-width="1"/>` +
-      `<path d="M19.5,22c0,0,3,2,6,0" fill="none" stroke="${F2}" stroke-width="1"/>`);
-    case QUEEN: return wrap(
-      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
-      `<path d="M9.5,36c0-4,1.5-6,3-7V24.5c0-3.5,2.5-6,2.5-10.5l8,8,8-8c0,4.5,2.5,7,2.5,10.5V29c1.5,1,3,3,3,7"/>` +
-      `<circle cx="6" cy="12.5" r="3"/>` +
-      `<circle cx="22.5" cy="7.5" r="3"/>` +
-      `<circle cx="39" cy="12.5" r="3"/>` +
-      `<circle cx="13.5" cy="9.5" r="2.5"/>` +
-      `<circle cx="31.5" cy="9.5" r="2.5"/>` +
-      `<path d="M9.5,34h26" stroke="${F2}" stroke-width="1"/>`);
-    case KING: return wrap(
-      `<rect x="9.5" y="36.5" width="26" height="3" rx="1.5"/>` +
-      `<path d="M11.5,36c0-4,2-6.5,11-6.5s11,2.5,11,6.5"/>` +
-      `<path d="M12,29.5c0-4.5,2.5-7,10.5-7s10.5,2.5,10.5,7"/>` +
-      `<path d="M14,29.5c0-8,2.5-15.5,8.5-18.5,6,3,8.5,10.5,8.5,18.5"/>` +
-      `<path d="M20.5,8v8M17,12h11" stroke-width="2" stroke-linecap="round"/>`);
+    // ── PAWN: classic mushroom silhouette – round head, waist, wide base
+    case PAWN: return w(
+      `<path d="M22.5,9 C20.29,9 18.5,10.79 18.5,13 C18.5,13.89 18.79,14.71 19.28,15.38` +
+      ` C17.33,16.5 16,18.59 16,21 C16,23.03 16.94,24.84 18.41,26.03` +
+      ` C15.41,27.09 11,31.58 11,39.5 L34,39.5` +
+      ` C34,31.58 29.59,27.09 26.59,26.03 C28.06,24.84 29,23.03 29,21` +
+      ` C29,18.59 27.67,16.5 25.72,15.38 C26.21,14.71 26.5,13.89 26.5,13` +
+      ` C26.5,10.79 24.71,9 22.5,9z"/>` +
+      `<line x1="11" y1="37" x2="34" y2="37" stroke="${D}" stroke-width="1" fill="none"/>`
+    );
+
+    // ── ROOK: castle tower with 3 clear battlements
+    case ROOK: return w(
+      `<rect x="9" y="36.5" width="27" height="3" rx="1.5"/>` +
+      `<rect x="12" y="17" width="21" height="19.5"/>` +
+      `<path d="M14,17 L11,14 L11,9 L15,9 L15,11.5 L20,11.5 L20,9 L25,9` +
+      ` L25,11.5 L30,11.5 L30,9 L34,9 L34,14 L31,17z"/>` +
+      `<line x1="12" y1="30" x2="33" y2="30" stroke="${D}" stroke-width="1" fill="none"/>` +
+      `<line x1="12" y1="24" x2="33" y2="24" stroke="${D}" stroke-width="1" fill="none"/>` +
+      `<line x1="12" y1="17" x2="33" y2="17" stroke="${D}" stroke-width="1" fill="none"/>`
+    );
+
+    // ── KNIGHT: horse-head profile with eye and nostril
+    case KNIGHT: return w(
+      `<path d="M22,10 C32.5,11 38.5,18 38,39 L15,39 C15,30 25,32.5 23,18"/>` +
+      `<path d="M24,18 C24.38,20.91 18.45,25.37 16,27 C13,29 13.18,31.34 11,31` +
+      ` C9.96,30.06 12.41,27.96 11,28 C10,28 11.19,29.23 10,30` +
+      ` C9,30 7,29 7,24 C7,20 13,19 14,18` +
+      ` C14.5,16 15,13.5 15,11.5 C14.27,10.5 14.5,9.5 14.5,8.5` +
+      ` C15.5,7.5 17.5,10 17.5,10 L19.5,10` +
+      ` C19.5,10 20.28,8 22,7 C23,7 23,10 23,10"/>` +
+      `<circle cx="19.5" cy="12.5" r="1.75" fill="${HL}" stroke="none"/>` +
+      `<path fill="${D}" stroke="none" d="M13,22 C13.5,20.5 15.5,19.5 16,21 C14.5,22 13.5,23 13,22z"/>`
+    );
+
+    // ── BISHOP: tall mitre with ruffled collar, ball finial and tip dot
+    case BISHOP: return w(
+      `<path d="M9,36 C12.39,35.03 19.11,36.43 22.5,34` +
+      ` C25.89,36.43 32.61,35.03 36,36 C36,36 37.65,36.54 39,38` +
+      ` C38.32,38.97 37.35,38.99 36,38.5 C32.61,37.53 25.89,38.96 22.5,37.5` +
+      ` C19.11,38.96 12.39,37.53 9,38.5 C7.65,38.99 6.68,38.97 6,38` +
+      ` C7.35,36.06 9,36 9,36z"/>` +
+      `<path d="M15,32 C17.5,34.5 27.5,34.5 30,32 C30.5,30.5 30,30 30,30` +
+      ` C30,27.5 27.5,26 27.5,26 C33,24.5 33.5,14.5 22.5,10.5` +
+      ` C11.5,14.5 12,24.5 17.5,26 C17.5,26 15,27.5 15,30` +
+      ` C15,30 14.5,30.5 15,32z"/>` +
+      `<circle cx="22.5" cy="8" r="2.5"/>` +
+      `<circle cx="22.5" cy="4.5" r="1.2" fill="${S}" stroke="none"/>` +
+      `<line x1="18" y1="26.5" x2="27" y2="26.5" stroke="${D}" stroke-width="1" fill="none"/>` +
+      `<path fill="none" stroke="${D}" stroke-width="1" d="M20,20 C21,22 24,22 25,20"/>`
+    );
+
+    // ── QUEEN: 5 crown balls, V-notched crown body, ribbed skirt
+    case QUEEN: return w(
+      `<path d="M9,26 C17.5,24.5 30,24.5 36,26 L38.5,13.5 L31,25` +
+      ` L30.7,10.9 L22.5,24.5 L14.3,10.9 L14,25 L6.5,13.5 L9,26z"/>` +
+      `<path d="M9,26 C9,28 10.5,28 11.5,30 C12.5,31.5 12.5,31 12,33.5` +
+      ` C10.5,34.5 11,36 11,36 C9.5,37.5 11.5,38.5 11.5,38.5` +
+      ` C17.5,39.5 27.5,39.5 33.5,38.5 C33.5,38.5 35.5,37.5 34,36` +
+      ` C34,36 34.5,34.5 33,33.5 C32.5,31 32.5,31.5 33.5,30` +
+      ` C34.5,28 36,28 36,26 C27.5,24.5 17.5,24.5 9,26z"/>` +
+      `<circle cx="6" cy="12" r="2.75"/>` +
+      `<circle cx="14" cy="9" r="2.75"/>` +
+      `<circle cx="22.5" cy="8" r="2.75"/>` +
+      `<circle cx="31" cy="9" r="2.75"/>` +
+      `<circle cx="39" cy="12" r="2.75"/>` +
+      `<line x1="11" y1="30" x2="34" y2="30" stroke="${D}" stroke-width="1" fill="none"/>` +
+      `<line x1="12" y1="33.5" x2="33" y2="33.5" stroke="${D}" stroke-width="1" fill="none"/>`
+    );
+
+    // ── KING: prominent cross at top is the unmistakable distinguisher
+    case KING: return w(
+      `<line x1="22.5" y1="11.5" x2="22.5" y2="5" stroke-width="2.5" stroke-linecap="round"/>` +
+      `<line x1="19.5" y1="7.5" x2="25.5" y2="7.5" stroke-width="2.5" stroke-linecap="round"/>` +
+      `<path d="M11.5,37 C13,29.5 17,26.5 22.5,25.5 C28,26.5 32,29.5 33.5,37z"/>` +
+      `<path d="M13,37 C13.5,25 18,20.5 22.5,13 C27,20.5 31.5,25 32,37z"/>` +
+      `<rect x="9" y="36.5" width="27" height="3" rx="1.5"/>` +
+      `<line x1="11.5" y1="35" x2="33.5" y2="35" stroke="${D}" stroke-width="1" fill="none"/>` +
+      `<line x1="13" y1="31" x2="32" y2="31" stroke="${D}" stroke-width="1" fill="none"/>`
+    );
+
     default: return '';
   }
 }
@@ -1153,6 +1204,7 @@ let fpLastMove     = null;
 let fpGameMode     = 'pvp';
 let fpAILevel      = 1;
 let fpPlayerColor  = WHITE;
+let fpFlipped      = false;
 let fpMoveLog      = [];
 let fpGameOver     = false;
 
@@ -1173,6 +1225,7 @@ function startFreeplay() {
   fpLastMove = null;
   fpMoveLog  = [];
   fpGameOver = false;
+  fpFlipped  = fpGameMode === 'ai' && fpPlayerColor === BLACK;
 
   document.getElementById('freeplay-setup').style.display = 'none';
   document.getElementById('freeplay-game').style.display  = 'block';
@@ -1182,15 +1235,32 @@ function startFreeplay() {
   const boardEl = buildBoardElement('fp', handleFpClick);
   container.appendChild(boardEl);
   setBoardSize();
+  applyFpFlip();
 
   updateFpBoard();
   updateFpStatus();
   updateFpMoveList();
 
+  // Flip button
+  document.getElementById('btn-fp-flip')?.addEventListener('click', () => {
+    fpFlipped = !fpFlipped;
+    applyFpFlip();
+    updateFpBoard();
+  });
+
   // If AI goes first (player chose black)
   if (fpGameMode === 'ai' && fpGS.turn !== fpPlayerColor) {
+    const st = document.getElementById('freeplay-status');
+    if (st) { st.textContent = '🤖 KI denkt...'; st.className = 'chess-status-bar status-ai-thinking'; }
     setTimeout(doAIMove, 400);
   }
+}
+
+function applyFpFlip() {
+  const outer = document.getElementById('board-outer-fp');
+  if (!outer) return;
+  if (fpFlipped) outer.classList.add('board-flipped');
+  else outer.classList.remove('board-flipped');
 }
 
 function handleFpClick(r, f) {
@@ -1286,6 +1356,8 @@ function executeMove(fromR, fromF, toR, toF, promoType=QUEEN) {
     }
 
     if (fpGameMode === 'ai' && fpGS.turn !== fpPlayerColor && !fpGameOver) {
+      const st = document.getElementById('freeplay-status');
+      if (st) { st.textContent = '🤖 KI denkt...'; st.className = 'chess-status-bar status-ai-thinking'; }
       setTimeout(doAIMove, 350);
     }
   });
@@ -1295,6 +1367,7 @@ function doAIMove() {
   if (fpGameOver) return;
   const mv = aiMove(fpGS, fpAILevel);
   if (mv) executeMove(mv.fromR, mv.fromF, mv.r, mv.f);
+  else updateFpStatus();
 }
 
 function buildSAN(gs, fromR, fromF, toR, toF, promo=QUEEN) {
@@ -4182,14 +4255,14 @@ const CHESS_STORY_ACTS = [
       {a:'👧',n:'Luna', t:'Türme bewegen sich horizontal und vertikal – so weit sie wollen! Läufer diagonal, bleiben auf ihrer Farbe.'},
     ],
     mms:[
-      { id:'ca1c3m1', title:'Turm kontrolliert', task:'Ziehe den Turm auf e8 und kontrolliere die gesamte e-Linie!',
-        fen:'4k3/8/8/8/8/8/8/4K2R w - - 0 1', type:'move', answer:{from:'h1',to:'e1'},
-        hint:'Der Turm auf h1 kann horizontal nach e1 ziehen und dann die ganze Linie kontrollieren.', time:45,
-        win:'Stark! Ein Turm auf einer offenen Linie ist äußerst mächtig!', lose:'Türme gleiten horizontal oder vertikal. Von h1 nach e1 – probier es!'},
-      { id:'ca1c3m2', title:'Läufer diagonal', task:'Ziehe den Läufer auf die lange Diagonale a7!',
-        fen:'4k3/8/8/8/8/8/8/2B1K3 w - - 0 1', type:'move', answer:{from:'c1',to:'a3'},
-        hint:'Läufer bewegen sich diagonal. Der Läufer auf c1 kann auf die Diagonale nach a3 oder nach b2 ziehen.', time:45,
-        win:'Perfekt! Läufer auf offenen Diagonalen sind wie Scharfschützen!', lose:'Läufer ziehen diagonal. Von c1 nach a3 (oder b2) – versuche es!'},
+      { id:'ca1c3m1', title:'Turm kontrolliert', task:'Ziehe den Turm von h1 nach e1 und kontrolliere die gesamte 1. Reihe!',
+        fen:'4k3/8/8/8/8/8/8/6KR w - - 0 1', type:'move', answer:{from:'h1',to:'e1'},
+        hint:'Der Turm auf h1 kann horizontal nach e1 gleiten. Klicke erst auf h1, dann auf e1.', time:45,
+        win:'Turm auf e1 kontrolliert die gesamte 1. Reihe! Ein Turm auf einer offenen Linie ist extrem mächtig.', lose:'Türme gleiten horizontal oder vertikal. Klicke den Turm auf h1, dann Zielfeld e1!'},
+      { id:'ca1c3m2', title:'Läufer diagonal', task:'Ziehe den Läufer von c1 nach g5 – beherrsche die Diagonale!',
+        fen:'4k3/8/8/8/8/8/8/2B1K3 w - - 0 1', type:'move', answer:{from:'c1',to:'g5'},
+        hint:'Läufer ziehen diagonal so weit sie wollen. Von c1 geht die Diagonale: d2, e3, f4, g5!', time:45,
+        win:'Läufer auf g5 beherrscht die lange Diagonale – Fernwirkung quer übers Brett!', lose:'Läufer auf c1 → klicke ihn an, dann auf g5 (diagonal: d2→e3→f4→g5).'},
     ],
     challenge:{ type:'lesson', lessonId:'m3', desc:'Beweise dein Können mit Türmen und Läufern.' },
     intro_success:[{a:'👧',n:'Luna',t:'Wow, du lernst schnell! Türme und Läufer sitzen bei dir schon gut.'}],
@@ -4249,14 +4322,14 @@ const CHESS_STORY_ACTS = [
       {a:'👧',n:'Luna', t:'Wenn dein König im Schach steht, gibt es nur drei Wege: flüchten, decken, schlagende Figur schlagen!'},
     ],
     mms:[
-      { id:'ca2c1m1', title:'Matt setzen!', task:'Gib dem schwarzen König Matt mit der Dame – Matt in 1!',
-        fen:'5k2/8/5Q2/8/8/8/8/4K3 w - - 0 1', type:'move', answer:{from:'f6',to:'f8'},
-        hint:'Die Dame auf f6 kann nach f8 ziehen. Ist der schwarze König dann eingeschlossen?', time:45,
-        win:'Damen-Matt! Df8# – der König hat keinen Ausweg mehr!', lose:'Die Dame auf f6 nach f8 gibt Matt! Klick Dame, dann f8.'},
-      { id:'ca2c1m2', title:'Schach geben', task:'Gib dem schwarzen König Schach mit dem Turm!',
+      { id:'ca2c1m1', title:'Matt setzen!', task:'Matt in 1! Ziehe die Dame von f7 nach g7 – das ist Schachmatt!',
+        fen:'6k1/5Q2/6K1/8/8/8/8/8 w - - 0 1', type:'move', answer:{from:'f7',to:'g7'},
+        hint:'Dame auf f7 → nach g7. Der König auf g8 hat dann keine einzige freie Ecke mehr!', time:45,
+        win:'Dg7#! Schachmatt – der König auf g8 kann nirgendwo hin. Meisterhaft!', lose:'Dame auf f7 nach g7 gibt Schachmatt! Klick Dame (f7) dann g7.'},
+      { id:'ca2c1m2', title:'Schach geben', task:'Gib dem schwarzen König Schach! Ziehe den Turm von a1 nach a8.',
         fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1', type:'move', answer:{from:'a1',to:'a8'},
-        hint:'Der Turm auf a1 kann gerade nach a8 ziehen und den König auf e8 angreifen... warte, er steht auf e8, nicht a8. Überlege welche Linie den König angreift!', time:45,
-        win:'Ta8+! Schach – der König muss reagieren!', lose:'Turm nach a8 gibt Schach! Von a1 nach a8, dann greift er die 8. Reihe an.'},
+        hint:'Turm a1 gleitet geradeaus nach a8. Von dort greift er die gesamte 8. Reihe an – auch Feld e8!', time:45,
+        win:'Ta8+! Schach – der König auf e8 muss reagieren. Der Turm beherrscht die ganze 8. Reihe!', lose:'Turm von a1 nach a8 gibt Schach! Klick Turm (a1) dann a8.'},
     ],
     challenge:{ type:'puzzle', puzzleId:'p1', desc:'Löse das erste echte Schachpuzzle!' },
     intro_success:[{a:'👧',n:'Luna',t:'Du verstehst Matt! Das ist der Schlüssel zum Schach. Weiter so!'}],
@@ -4270,14 +4343,14 @@ const CHESS_STORY_ACTS = [
       {a:'😈',n:'Baron Viktor', t:'Pff, Gabeln benutzen nur Amateure! ...Okay, zugegeben, sie sind sehr effektiv.'},
     ],
     mms:[
-      { id:'ca2c2m1', title:'Springer-Gabel', task:'Setze eine Gabel! Dein Springer soll gleichzeitig König UND Dame angreifen!',
-        fen:'3qk3/8/8/8/8/8/8/3NK3 w - - 0 1', type:'move', answer:{from:'d1',to:'e3'},
-        hint:'Der Springer von d1 springt im L. Nach e3 greift er sowohl d5 als auch f5 an... oder gibt es eine bessere Gabel?', time:60,
-        win:'Ne3+ Gabel! Springer greift König und Dame gleichzeitig – Materialgewinn!', lose:'Der Springer soll König UND Dame gleichzeitig angreifen. Von d1 gibt es einen Sprung der beide trifft!'},
-      { id:'ca2c2m2', title:'Damengabel', task:'Gabel mit der Dame! Greife Turm UND Läufer gleichzeitig an!',
-        fen:'r1b1k3/8/8/8/8/8/8/3QK3 w - - 0 1', type:'move', answer:{from:'d1',to:'a4'},
-        hint:'Die Dame kann in einer Bewegung zwei Figuren angreifen. Wo steht sie, um Turm auf a8 und Läufer auf c8 zu bedrohen?', time:60,
-        win:'Da4+! Gabel – Dame greift gleichzeitig zwei Figuren an. Material gewonnen!', lose:'Dame nach a4 gibt Schach und bedroht Turm. Von d1 nach a4 – probiere es!'},
+      { id:'ca2c2m1', title:'Springer-Gabel', task:'Gabel! Springe mit dem Springer nach e4 – greife Dame auf d6 UND König auf f6 gleichzeitig an!',
+        fen:'8/8/3q1k2/8/8/2N5/8/4K3 w - - 0 1', type:'move', answer:{from:'c3',to:'e4'},
+        hint:'Springer von c3 nach e4 springt im L (2 rechts + 1 hoch). Von e4 greift er d6 (Dame) UND f6 (König) an!', time:60,
+        win:'Se4! Perfekte Gabel! Der Springer greift gleichzeitig Dame auf d6 und König auf f6 an – Materialgewinn!', lose:'Springer c3→e4 macht die Gabel! Klick Springer (c3) dann e4.'},
+      { id:'ca2c2m2', title:'Damengabel', task:'Gabel mit der Dame! Dame nach a1 greift Turm a8 UND König h8 gleichzeitig an!',
+        fen:'r6k/8/8/8/8/8/8/3QK3 w - - 0 1', type:'move', answer:{from:'d1',to:'a1'},
+        hint:'Dame auf a1: greift den Turm auf a8 (gerade Linie) UND den König auf h8 (Diagonale a1-h8) an!', time:60,
+        win:'Da1! Brillante Gabel! Turm a8 (a-Linie) und König h8 (Diagonale) werden gleichzeitig angegriffen!', lose:'Dame von d1 nach a1 macht die Doppelgabel. Klick Dame (d1) dann a1.'},
     ],
     challenge:{ type:'puzzle', puzzleId:'p6', desc:'Finde die Gabel in einem echten Puzzle!' },
     intro_success:[{a:'👴',n:'GM Kaspar',t:'Exzellent! Die Gabel ist eine deiner wichtigsten Waffen. Gut verinnerlicht!'}],
@@ -4312,10 +4385,10 @@ const CHESS_STORY_ACTS = [
       {a:'👧',n:'Luna', t:'Zwei Schlüsselkonzepte: Die Opposition (Könige stehen sich vis-à-vis) und die Leiter (Turm schneidet ab).'},
     ],
     mms:[
-      { id:'ca2c4m1', title:'Leiter-Matt', task:'Setze Matt mit König und Turm – Turm nach a8 gibt Schachmatt!',
-        fen:'7k/8/6KR/8/8/8/8/8 w - - 0 1', type:'move', answer:{from:'h6',to:'h8'},
-        hint:'Der Turm auf h6 kann nach h8 gehen. Der schwarze König auf h8 hat keine Felder mehr!', time:60,
-        win:'Th8# – Leiter-Matt! König und Turm arbeiten perfekt zusammen!', lose:'Turm nach h8 gibt Matt – der König auf h8 ist eingeschlossen. Versuche es!'},
+      { id:'ca2c4m1', title:'Dame-Matt', task:'Matt in 1! Dame von g2 nach g1 – der König auf h1 ist eingeschlossen!',
+        fen:'8/8/8/8/8/8/6QK/7k w - - 0 1', type:'move', answer:{from:'g2',to:'g1'},
+        hint:'Dame g2→g1 gibt Schach. König h1 kann nicht: g2 (Dame), h2 (weißer König). Schachmatt!', time:60,
+        win:'Dg1#! Perfektes Endspiel-Matt! König h1 hat keinen einzigen Ausweg mehr!', lose:'Dame von g2 nach g1 ist das Schachmatt. Klick Dame (g2) dann g1.'},
       { id:'ca2c4m2', title:'König in die Ecke', task:'Bringe den gegnerischen König in die Ecke – König nach g6 ist der richtige Weg!',
         fen:'8/8/8/4k3/8/8/8/4K2Q w - - 0 1', type:'move', answer:{from:'e1',to:'e2'},
         hint:'Der König sollte in Richtung des gegnerischen Königs gehen. Ke2 macht Opposition möglich!', time:60,
@@ -4383,10 +4456,10 @@ const CHESS_STORY_ACTS = [
         fen:'5k2/5Q2/5K2/8/8/8/8/8 b - - 0 1', type:'click', answer:'f8',
         hint:'Der schwarze König auf f8 steht... im Patt! Klicke auf f8 – er kann nirgendwo hin ohne ins Schach zu gehen.', time:45,
         win:'Patt erkannt! Der König auf f8 kann nicht ziehen ohne ins Schach zu gehen – Remis!', lose:'Klicke auf f8 – dort steht der schwarze König im Patt!'},
-      { id:'ca3c2m2', title:'Patt-Falle stellen', task:'Als Unterlegener: ziehe in ein Patt! Ke6 zwingt Weiß ins Patt!',
-        fen:'8/8/8/4k3/8/8/8/1Q2K3 b - - 0 1', type:'move', answer:{from:'e5',to:'e4'},
-        hint:'Schwarzer König nach e4! Weiß muss dann Dame spielen... und wenn die Dame falsch zieht, ist es Patt!', time:60,
-        win:'Ke4! Jetzt muss Weiß sehr sorgfältig spielen – Patt-Gefahr ist real!', lose:'Ke4 setzt Weiß unter Druck. Schwarzer König von e5 nach e4!'},
+      { id:'ca3c2m2', title:'Patt-Falle erkennen', task:'Weiß hat einen Fehler gemacht – Patt! Klicke auf das Feld wo der schwarze König steht (er kann nicht ziehen).',
+        fen:'7k/8/5KQ1/8/8/8/8/8 b - - 0 1', type:'click', answer:'h8',
+        hint:'Schwarzer König auf h8: g8 wird von der Dame kontrolliert, h7 ebenfalls. Kein legaler Zug – Patt!', time:45,
+        win:'Richtig! König h8 ist gepatt – Dame auf g6 und König f6 blockieren alle Fluchtwege. Weiß hat einen Fehler gemacht!', lose:'Klicke auf h8 – dort steht der schwarze König im Patt!'},
     ],
     challenge:{ type:'puzzle', puzzleId:'p18', desc:'Nutze eine Patt-Falle zur Rettung!' },
     intro_success:[{a:'👴',n:'GM Kaspar',t:'Ausgezeichnet! Patt-Fallen sind wertvolles Wissen – du hast das Konzept verstanden!'}],
@@ -4405,10 +4478,10 @@ const CHESS_STORY_ACTS = [
         fen:'r1b2rk1/ppp2ppp/2n5/3pp1N1/2BP4/8/PPP2PPP/R1BQK2R w KQ - 0 1', type:'move', answer:{from:'g5',to:'f7'},
         hint:'Sxf7 opfert den Springer – aber danach gibt es Matt! Weiß beginnt mit dem Springer-Opfer.', time:60,
         win:'Sxf7! Springer-Opfer öffnet den Angriff – Dh5+ folgt und Matt ist unausweichlich!', lose:'Sg5xf7 ist das Opfer! Klick Springer auf g5, dann auf f7.'},
-      { id:'ca3c3m2', title:'Königsangriff', task:'Schlag mit der Dame auf h5 und setze den Angriff fort!',
+      { id:'ca3c3m2', title:'Springer schlagen', task:'Schwarz schlägt zurück! Schlage den weißen Springer auf f7 mit dem Turm!',
         fen:'r1b2rk1/ppp2Npp/2n5/3pp3/2BP4/8/PPP2PPP/R1BQK2R b KQ - 0 1', type:'move', answer:{from:'f8',to:'f7'},
-        hint:'Schwarz muss den Springer schlagen: Txf7. Dann kommt Dh5+ und Matt ist fast unvermeidlich!', time:60,
-        win:'Txf7! Du spielst die richtige Antwort – jetzt kommt der Mattangriff!', lose:'Txf7 schlägt den Springer. Schwarzer Turm von f8 nach f7!'},
+        hint:'Schwarzer Turm auf f8 schlägt den weißen Springer auf f7: Txf7. Der Turm zieht ein Feld geradeaus!', time:60,
+        win:'Txf7! Du schlägst den Springer – aber Weiß hat jetzt Dh5+ und der Mattangriff beginnt!', lose:'Schwarzer Turm von f8 nach f7 schlägt den Springer! Klick Turm (f8) dann f7.'},
     ],
     challenge:{ type:'puzzle', puzzleId:'p20', desc:'Zeige dein ganzes Können in diesem Meisterpuzzle!' },
     intro_success:[{a:'👴',n:'GM Kaspar',t:'Wunderbar! Du hast wirklich verstanden was Schach ausmacht. Jetzt: der finale Boss!'}],
@@ -4476,6 +4549,9 @@ const ChessStory = (() => {
   let bossAILevel    = 1;
   let bossGameOver   = false;
   let bossCaptures   = {white:0, black:0};
+  let bossMoveCount  = 0;
+  let chapterErrors  = 0;
+  let hintTimerRef   = null;
 
   /* ── DOM helpers ── */
   const el   = id => document.getElementById(id);
@@ -4526,20 +4602,40 @@ const ChessStory = (() => {
     ['cs-difficulty','cs-intro','cs-minimission','cs-boss',
      'cs-result','cs-act-complete','cs-weakness'].forEach(hide);
     show('cs-map');
+    renderMapProgress();
     renderActTabs();
     renderPath(currentActIdx);
     renderDailyWidget();
+  }
+
+  function renderMapProgress() {
+    const wrap = el('cs-map-progress');
+    if (!wrap) return;
+    const total    = CHESS_STORY_ACTS.reduce((s, a) => s + a.chapters.length, 0);
+    const done     = CHESS_STORY_ACTS.reduce((s, a) => s + a.chapters.filter(c => !!getRes(c.id)?.completed).length, 0);
+    const stars    = CHESS_STORY_ACTS.reduce((s, a) => s + a.chapters.reduce((s2, c) => s2 + (getRes(c.id)?.stars || 0), 0), 0);
+    const maxStars = total * 3;
+    const pct      = total ? Math.round(done / total * 100) : 0;
+    if (done === 0) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = `
+      <div class="cs-progress-row">
+        <span class="cs-prog-lbl">Fortschritt: <b>${done}/${total} Kapitel</b></span>
+        <span class="cs-prog-stars">⭐ ${stars} / ${maxStars}</span>
+      </div>
+      <div class="cs-prog-bar-wrap"><div class="cs-prog-bar-fill" style="width:${pct}%"></div></div>`;
   }
 
   function renderActTabs() {
     const wrap = el('cs-acts-tabs');
     if (!wrap) return;
     wrap.innerHTML = CHESS_STORY_ACTS.map((a, i) => {
-      const done   = !!getActRes(a.id)?.completed;
-      const locked = !actUnlocked(a);
-      const cls    = ['csact-tab', i === currentActIdx ? 'active' : '', locked ? 'locked-tab' : ''].join(' ');
+      const done      = !!getActRes(a.id)?.completed;
+      const locked    = !actUnlocked(a);
+      const chDone    = a.chapters.filter(c => !!getRes(c.id)?.completed).length;
+      const cls       = ['csact-tab', i === currentActIdx ? 'active' : '', locked ? 'locked-tab' : ''].join(' ');
+      const progTxt   = locked ? '🔒' : `${chDone}/${a.chapters.length}`;
       return `<button class="${cls}" data-cs-act="${i}">
-        ${a.icon} ${a.title}${done ? ' ✓' : ''}
+        ${a.icon} ${a.title}${done ? ' ✓' : ''}<span class="csact-prog">${progTxt}</span>
       </button>`;
     }).join('');
     wrap.querySelectorAll('[data-cs-act]').forEach(btn => {
@@ -4739,12 +4835,17 @@ const ChessStory = (() => {
   /* ══ MINI MISSIONS ══ */
   function startMiniMissions() {
     mmIdx = 0;
+    chapterErrors = 0;
     startNextMiniMission();
   }
 
   function startNextMiniMission() {
     const ch = activeChapter;
-    if (mmIdx >= (ch.mms?.length || 0)) { startChapterChallenge(); return; }
+    if (mmIdx >= (ch.mms?.length || 0)) {
+      const score = Math.max(10, 100 - chapterErrors * 15);
+      onChapterComplete(true, score, chapterErrors);
+      return;
+    }
     const mm = ch.mms[mmIdx];
     runMinimission(mm.fen, mm, () => { mmIdx++; startNextMiniMission(); });
   }
@@ -4779,26 +4880,27 @@ const ChessStory = (() => {
       timeLeft--;
       setText('cs-mm-timer', timeLeft);
       if (timeLeft <= 10) el('cs-mm-timer')?.classList.add('urgent');
-      if (timeLeft <= 0) { clearInterval(mmTimerRef); mmFail(mm, '⏱ Zeit abgelaufen!', onSuccess); }
+      if (timeLeft <= 0) { clearInterval(mmTimerRef); chapterErrors++; mmFail(mm, '⏱ Zeit abgelaufen!', onSuccess); }
     }, 1000);
 
-    // Build board
+    // Build board — size the board correctly via CSS variable
     mmGS = parseFen(mm.fen);
     const container = el('cs-mm-board');
     if (container) {
       container.innerHTML = '';
-      const size = Math.min(280, Math.floor((window.innerWidth - 200) / 1));
       const boardEl = buildBoardElement('cs-mm', (r, f) => handleMmClick(r, f, mm, onSuccess));
+      const bSize = Math.min(280, window.innerWidth > 700 ? 280 : window.innerWidth - 180);
+      boardEl.style.setProperty('--board-size', bSize + 'px');
+      boardEl.querySelectorAll('.chess-board').forEach(b => { b.style.width = bSize+'px'; b.style.height = bSize+'px'; });
+      boardEl.querySelectorAll('.chess-coords-left,.chess-coords-right').forEach(c => { c.style.height = bSize+'px'; });
       container.appendChild(boardEl);
-      const board = boardEl.querySelector('.chess-board');
-      if (board) { board.style.width = '280px'; board.style.height = '280px'; }
       renderBoard('cs-mm', mmGS, null, [], null, undefined);
     }
 
-    el('cs-mm-hint-btn').onclick = () => {
-      show('cs-mm-hint-box');
-    };
+    el('cs-mm-hint-btn').onclick = () => { show('cs-mm-hint-box'); clearTimeout(hintTimerRef); };
     hide('cs-mm-hint-box');
+    clearTimeout(hintTimerRef);
+    hintTimerRef = setTimeout(() => { if (!mmDone) show('cs-mm-hint-box'); }, 12000);
   }
 
   function updateMmAttempts() {
@@ -4811,14 +4913,21 @@ const ChessStory = (() => {
 
     if (mm.type === 'click') {
       if (alg === mm.answer) mmSuccess(mm, onSuccess);
-      else { mmAttempts--; updateMmAttempts(); showMmFeedback('wrong', '✗ ' + mm.lose); if (mmAttempts <= 0) mmFail(mm, 'Keine Versuche mehr. ' + mm.lose, onSuccess); }
+      else { mmAttempts--; chapterErrors++; updateMmAttempts(); showMmFeedback('wrong', '✗ ' + mm.lose); if (mmAttempts <= 0) mmFail(mm, 'Keine Versuche mehr. ' + mm.lose, onSuccess); }
       return;
     }
 
     if (mm.type === 'move') {
+      const answerFrom = mm.answer?.from ? algebraicToCoord(mm.answer.from) : null;
       if (!mmSelected) {
         const piece = mmGS.board[r][f];
-        if (piece === EMPTY || piece < 0) return; // only white pieces
+        const isPlayerPiece = mmGS.turn === WHITE ? piece > 0 : piece < 0;
+        if (piece === EMPTY || !isPlayerPiece) return;
+        // guide player: only allow selecting the correct starting piece
+        if (answerFrom && (r !== answerFrom.r || f !== answerFrom.f)) {
+          showMmFeedback('wrong', '💡 Klicke auf die richtige Figur: ' + mm.answer.from.toUpperCase());
+          return;
+        }
         mmSelected = {r, f};
         const legal = legalMovesFor(mmGS, r, f);
         renderBoard('cs-mm', mmGS, {r,f}, legal, null, undefined);
@@ -4830,13 +4939,16 @@ const ChessStory = (() => {
           mmSelected = null;
           mmSuccess(mm, onSuccess);
         } else {
-          if (mmGS.board[r][f] > 0) { // re-select
+          // Allow re-selecting the correct piece without penalty
+          if (answerFrom && r === answerFrom.r && f === answerFrom.f) {
             mmSelected = {r, f};
             renderBoard('cs-mm', mmGS, {r,f}, legalMovesFor(mmGS,r,f), null, undefined);
             return;
           }
+          // Wrong destination — deselect, show error
           mmSelected = null;
           mmAttempts--;
+          chapterErrors++;
           updateMmAttempts();
           showMmFeedback('wrong', '✗ ' + mm.lose);
           renderBoard('cs-mm', mmGS, null, [], null, undefined);
@@ -4858,6 +4970,7 @@ const ChessStory = (() => {
   function mmSuccess(mm, onSuccess) {
     mmDone = true;
     clearInterval(mmTimerRef);
+    clearTimeout(hintTimerRef);
     showMmFeedback('correct', '✓ ' + mm.win);
     if (CS.settings.sound) SOUNDS.correct();
     setTimeout(onSuccess, 1200);
@@ -4866,27 +4979,33 @@ const ChessStory = (() => {
   function mmFail(mm, msg, onSuccess) {
     mmDone = true;
     clearInterval(mmTimerRef);
-    showMmFeedback('wrong', '✗ ' + msg);
+    clearTimeout(hintTimerRef);
     if (CS.settings.sound) SOUNDS.wrong();
-    // Reset and retry
-    mmAttempts = 3;
-    mmDone     = false;
-    mmSelected = null;
-    clearInterval(mmTimerRef);
+
+    const fb = el('cs-mm-feedback');
+    if (fb) { fb.className = 'cs-mm-feedback wrong'; fb.textContent = '✗ ' + msg; show('cs-mm-feedback'); }
+
+    // After 1.5s: show the correct solution on the board
     setTimeout(() => {
-      // Show solution briefly then restart
       const answer = mm.answer;
       if (answer && typeof answer === 'object' && answer.from) {
         const fc = algebraicToCoord(answer.from), tc = algebraicToCoord(answer.to);
-        mmGS = parseFen(mm.fen);
-        const solGS = applyMove(mmGS, fc.r, fc.f, tc.r, tc.f);
+        const solGS = applyMove(parseFen(mm.fen), fc.r, fc.f, tc.r, tc.f);
         renderBoard('cs-mm', solGS, null, [], {fromR:fc.r,fromF:fc.f,toR:tc.r,toF:tc.f}, undefined);
-        showMmFeedback('correct', '💡 Lösung: ' + answer.from + '→' + answer.to);
-        mmGS = parseFen(mm.fen);
-        renderBoard('cs-mm', mmGS, null, [], null, undefined);
-        setTimeout(() => { mmDone = false; mmSelected = null; updateMmAttempts(); startTimerFor(mm, onSuccess); }, 2500);
+        if (fb) { fb.className = 'cs-mm-feedback correct'; fb.textContent = '💡 Lösung: ' + answer.from.toUpperCase() + '→' + answer.to.toUpperCase(); }
       }
-    }, 1200);
+      // After another 2s: reset and restart
+      setTimeout(() => {
+        hide('cs-mm-feedback');
+        mmGS = parseFen(mm.fen);
+        mmAttempts = 3;
+        mmDone     = false;
+        mmSelected = null;
+        updateMmAttempts();
+        renderBoard('cs-mm', mmGS, null, [], null, undefined);
+        startTimerFor(mm, onSuccess);
+      }, 2000);
+    }, 1500);
   }
 
   function startTimerFor(mm, onSuccess) {
@@ -4971,20 +5090,31 @@ const ChessStory = (() => {
 
     const ch   = activeChapter;
     const msgs = passed ? ch.intro_success : ch.intro_fail;
-    setHtml('cs-result-dialog', `<div class="cs-sresult-dialog">${msgs.map(m => `
-      <div class="cs-sbubble">
-        <span class="cs-sava">${m.a}</span>
-        <div class="cs-smsg-wrap">
-          <div class="cs-sspk">${m.n}</div>
-          <div class="cs-smsg">${m.t}</div>
-        </div>
-      </div>`).join('')}</div>`);
+
+    const starHtml = passed
+      ? `<span class="cs-stars-animated">${'<span>⭐</span>'.repeat(stars)}${'<span style="opacity:.25">☆</span>'.repeat(3-stars)}</span>`
+      : '—';
+
+    setHtml('cs-result-dialog', `
+      <div class="cs-result-header" style="${passed ? '' : 'background:rgba(239,68,68,.08);'}">
+        <h3 style="color:${passed ? 'var(--green)' : '#ef4444'}">${passed ? '🎉 Kapitel abgeschlossen!' : '😅 Versuch es nochmal!'}</h3>
+        <div style="font-size:1.5rem;margin:.3rem 0">${starHtml}</div>
+        <div style="font-size:.78rem;color:var(--text-3)">${ch.num}: ${ch.title}</div>
+      </div>
+      <div class="cs-sresult-dialog">${msgs.map(m => `
+        <div class="cs-sbubble">
+          <span class="cs-sava">${m.a}</span>
+          <div class="cs-smsg-wrap">
+            <div class="cs-sspk">${m.n}</div>
+            <div class="cs-smsg">${m.t}</div>
+          </div>
+        </div>`).join('')}</div>`);
 
     setHtml('cs-result-stats', `
-      <div class="story-stat-pill"><span class="story-stat-val">${passed ? '✅' : '❌'}</span><span class="story-stat-lbl">Status</span></div>
-      <div class="story-stat-pill"><span class="story-stat-val">${passed ? '⭐'.repeat(stars)+'☆'.repeat(3-stars) : '—'}</span><span class="story-stat-lbl">Sterne</span></div>
       <div class="story-stat-pill"><span class="story-stat-val" style="color:var(--green)">+${xpEarned}</span><span class="story-stat-lbl">XP</span></div>
-      <div class="story-stat-pill"><span class="story-stat-val">${errors}</span><span class="story-stat-lbl">Fehler</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${Math.round(score)}%</span><span class="story-stat-lbl">Score</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${errors === 0 ? '✨' : errors}</span><span class="story-stat-lbl">Fehler</span></div>
+      <div class="story-stat-pill"><span class="story-stat-val">${{easy:'🐣',normal:'♟',hard:'♛'}[activeDiff]}</span><span class="story-stat-lbl">Schwierigkeit</span></div>
     `);
 
     let actionsHtml = '';
@@ -5072,6 +5202,7 @@ const ChessStory = (() => {
     bossSelected     = null;
     bossLegal        = [];
     bossCaptures     = {white:0, black:0};
+    bossMoveCount    = 0;
 
     activateView();
     ['cs-map','cs-intro','cs-result','cs-weakness','cs-act-complete','cs-minimission'].forEach(hide);
@@ -5079,18 +5210,23 @@ const ChessStory = (() => {
 
     setText('cs-boss-name', boss.name);
     setText('cs-boss-rating', `KI Level ${bossAILevel}`);
+    setText('cs-boss-avatar', boss.icon);
     setHtml('cs-boss-dialog', '');
+    setHtml('cs-boss-moves', '');
     hide('cs-boss-flash');
     updateEvalBar(0);
+    updateMaterialBar();
     setBossStatus('Du bist am Zug');
 
     const container = el('cs-boss-board');
     if (container) {
       container.innerHTML = '';
       const boardEl = buildBoardElement('cs-boss', handleBossClick);
+      const bSize = Math.min(280, window.innerWidth > 700 ? 280 : window.innerWidth - 180);
+      boardEl.style.setProperty('--board-size', bSize + 'px');
+      boardEl.querySelectorAll('.chess-board').forEach(b => { b.style.width = bSize+'px'; b.style.height = bSize+'px'; });
+      boardEl.querySelectorAll('.chess-coords-left,.chess-coords-right').forEach(c => { c.style.height = bSize+'px'; });
       container.appendChild(boardEl);
-      const board = boardEl.querySelector('.chess-board');
-      if (board) { board.style.width = '280px'; board.style.height = '280px'; }
     }
 
     el('cs-boss-resign').onclick = () => {
@@ -5135,20 +5271,23 @@ const ChessStory = (() => {
       }
 
       const captured = bossGS.board[r][f];
-      if (captured !== EMPTY) bossCaptures.white += PIECE_VALUES[Math.abs(captured)];
+      if (captured !== EMPTY) { bossCaptures.white += PIECE_VALUES[Math.abs(captured)]; updateMaterialBar(); }
 
-      bossGS = applyMove(bossGS, bossSelected.r, bossSelected.f, r, f);
+      const fromR  = bossSelected.r, fromF = bossSelected.f;
+      const moveStr = getMoveNotation(bossGS, fromR, fromF, r, f);
+      bossGS = applyMove(bossGS, fromR, fromF, r, f);
       bossSelected = null; bossLegal = [];
 
       if (CS.settings.sound) SOUNDS.move();
       renderBossBoard();
-      addBossMove(`${coordToAlgebraic(bossSelected?.r || r, bossSelected?.f || f)}→${coordToAlgebraic(r,f)}`);
+      addBossMove(moveStr, true);
 
       if (isCheckmate(bossGS)) { bossGameOver = true; endBossGame(true, activeAct); return; }
       if (isStalemate(bossGS)) { bossGameOver = true; endBossGame(false, activeAct, true); return; }
 
       updateEvalBar(estimateEval());
-      setBossStatus('Gegner denkt...');
+      const oppCheck = isInCheck(bossGS, bossGS.turn);
+      setBossStatus(oppCheck ? '⚠️ KI steht im Schach!' : 'Gegner denkt...');
       showBossTaunt(activeAct.boss);
       setTimeout(() => doBossAIMove(activeAct), 600);
     }
@@ -5159,9 +5298,11 @@ const ChessStory = (() => {
     const mv = aiMove(bossGS, bossAILevel);
     if (!mv) { bossGameOver = true; endBossGame(true, act); return; }
 
-    const captured = bossGS.board[mv.r][mv.f];
+    const captured  = bossGS.board[mv.r][mv.f];
+    const moveStr   = getMoveNotation(bossGS, mv.fromR, mv.fromF, mv.r, mv.f);
     if (captured !== EMPTY) {
       bossCaptures.black += PIECE_VALUES[Math.abs(captured)];
+      updateMaterialBar();
       if (CS.settings.sound) SOUNDS.capture();
       flashBossScreen();
     } else if (CS.settings.sound) SOUNDS.move();
@@ -5169,14 +5310,14 @@ const ChessStory = (() => {
     bossGS = applyMove(bossGS, mv.fromR, mv.fromF, mv.r, mv.f);
     bossSelected = null; bossLegal = [];
     renderBossBoard();
-    addBossMove(`${coordToAlgebraic(mv.fromR,mv.fromF)}→${coordToAlgebraic(mv.r,mv.f)}`);
+    addBossMove(moveStr, false);
 
     if (isCheckmate(bossGS)) { bossGameOver = true; endBossGame(false, act); return; }
     if (isStalemate(bossGS)) { bossGameOver = true; endBossGame(false, act, true); return; }
 
     updateEvalBar(estimateEval());
     const inCheck = isInCheck(bossGS, bossGS.turn);
-    setBossStatus(inCheck ? '⚠️ Du stehst im Schach!' : 'Du bist am Zug!');
+    setBossStatus(inCheck ? '⚠️ Du stehst im Schach!' : 'Du bist am Zug!', inCheck);
   }
 
   function flashBossScreen() {
@@ -5210,9 +5351,11 @@ const ChessStory = (() => {
     }
   }
 
-  function setBossStatus(txt) {
+  function setBossStatus(txt, inCheck) {
     const el2 = el('cs-boss-status');
-    if (el2) el2.textContent = txt;
+    if (!el2) return;
+    el2.textContent = txt;
+    el2.className   = 'cs-boss-status' + (inCheck ? ' in-check' : '');
   }
 
   function showBossTaunt(boss) {
@@ -5225,11 +5368,32 @@ const ChessStory = (() => {
     </div>`);
   }
 
-  function addBossMove(txt) {
+  function getMoveNotation(gs, fromR, fromF, toR, toF) {
+    const piece   = Math.abs(gs.board[fromR][fromF]);
+    const syms    = ['','♟','♞','♝','♜','♛','♚'];
+    const sym     = syms[piece] || '';
+    const capture = gs.board[toR][toF] !== EMPTY ? '×' : '→';
+    return `${sym}${coordToAlgebraic(fromR,fromF)}${capture}${coordToAlgebraic(toR,toF)}`;
+  }
+
+  function updateMaterialBar() {
+    const bar  = el('cs-material-bar');
+    if (!bar) return;
+    const diff = bossCaptures.white - bossCaptures.black;
+    if (diff > 0)       { bar.textContent = `♙ +${diff} Materialvorteil`;  bar.style.color = 'var(--green)'; }
+    else if (diff < 0)  { bar.textContent = `♟ +${-diff} KI Materialvorteil`; bar.style.color = '#f59e0b'; }
+    else                { bar.textContent = '⚖️ Ausgeglichen'; bar.style.color = 'var(--text-3)'; }
+  }
+
+  function addBossMove(txt, isPlayerMove) {
     const list = el('cs-boss-moves');
     if (!list) return;
+    bossMoveCount++;
     const row = document.createElement('div');
-    row.textContent = txt;
+    row.className = 'boss-move-row ' + (isPlayerMove ? 'player-move' : 'ai-move');
+    const num = Math.ceil(bossMoveCount / 2);
+    const prefix = bossMoveCount % 2 === 1 ? `${num}.` : '  ';
+    row.textContent = `${prefix} ${txt}`;
     list.appendChild(row);
     list.scrollTop = list.scrollHeight;
   }
