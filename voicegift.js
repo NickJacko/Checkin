@@ -185,15 +185,27 @@ function bindLogin(){
     const pw    = $$('login-password').value;
     $$('login-error').textContent = '';
     if(!email || !pw){ $$('login-error').textContent='Bitte E-Mail und Passwort eingeben.'; return; }
+    const btn = $$('btn-login');
+    btn.textContent = '…';
+    btn.disabled    = true;
     try {
-      $$('btn-login').textContent = '…';
       await signInWithEmailAndPassword(auth, email, pw);
     } catch(e) {
-      $$('btn-login').textContent = 'Anmelden';
-      $$('login-error').textContent = 'Anmeldung fehlgeschlagen. Überprüfe E-Mail und Passwort.';
+      let msg = 'Anmeldung fehlgeschlagen. Überprüfe E-Mail und Passwort.';
+      if(e.code === 'auth/operation-not-allowed'){
+        msg = 'E-Mail/Passwort-Anmeldung ist in der Firebase Console nicht aktiviert.';
+      } else if(e.code === 'auth/too-many-requests'){
+        msg = 'Zu viele Versuche. Bitte kurz warten und erneut probieren.';
+      } else if(e.code === 'auth/network-request-failed'){
+        msg = 'Keine Netzwerkverbindung. Bitte Internetverbindung prüfen.';
+      }
+      $$('login-error').textContent = msg;
+    } finally {
+      btn.textContent = 'Anmelden';
+      btn.disabled    = false;
     }
   };
-  $$('login-password').addEventListener('keydown', e => { if(e.key==='Enter') $$('btn-login').click(); });
+  $$('login-password').addEventListener('keydown', e => { if(e.key==='Enter' && !$$('btn-login').disabled) $$('btn-login').click(); });
   $$('btn-logout').onclick = () => signOut(auth);
 }
 
@@ -202,10 +214,14 @@ function bindLogin(){
 ═══════════════════════════════════════════════════════ */
 async function loadProjects(){
   showView('projects');
-  const snap = await getDocs(collection(db,'vg_projects'));
-  const projects = snap.docs.map(d=>({id:d.id,...d.data()}))
-    .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-  renderProjectGrid(projects);
+  try {
+    const snap = await getDocs(collection(db,'vg_projects'));
+    const projects = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    renderProjectGrid(projects);
+  } catch(e){
+    renderProjectGrid([]);
+  }
 }
 
 function renderProjectGrid(projects){
