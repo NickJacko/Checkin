@@ -189,10 +189,6 @@ function bindLogin(){
     btn.textContent = '…';
     btn.disabled    = true;
     try {
-      /* Sign out anonymous user first so it doesn't interfere */
-      if(auth.currentUser && auth.currentUser.isAnonymous){
-        await signOut(auth);
-      }
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(Object.assign(new Error('timeout'), {code:'timeout'})), 12000)
       );
