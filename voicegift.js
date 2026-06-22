@@ -184,22 +184,27 @@ function bindLogin(){
     const email = $$('login-email').value.trim();
     const pw    = $$('login-password').value;
     $$('login-error').textContent = '';
-    if(!email || !pw){ $$('login-error').textContent='Bitte E-Mail und Passwort eingeben.'; return; }
+    if(!email || !pw){ showLoginError('Bitte E-Mail und Passwort eingeben.'); return; }
     const btn = $$('btn-login');
     btn.textContent = '…';
     btn.disabled    = true;
     try {
-      await signInWithEmailAndPassword(auth, email, pw);
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(Object.assign(new Error('timeout'), {code:'timeout'})), 12000)
+      );
+      await Promise.race([signInWithEmailAndPassword(auth, email, pw), timeout]);
     } catch(e) {
-      let msg = 'Anmeldung fehlgeschlagen. Überprüfe E-Mail und Passwort.';
+      let msg;
       if(e.code === 'auth/operation-not-allowed'){
-        msg = 'E-Mail/Passwort-Anmeldung ist in der Firebase Console nicht aktiviert.';
+        msg = 'Anmeldung nicht aktiviert. Bitte E-Mail/Passwort in der Firebase Console aktivieren.';
       } else if(e.code === 'auth/too-many-requests'){
-        msg = 'Zu viele Versuche. Bitte kurz warten und erneut probieren.';
-      } else if(e.code === 'auth/network-request-failed'){
-        msg = 'Keine Netzwerkverbindung. Bitte Internetverbindung prüfen.';
+        msg = 'Zu viele Versuche. Bitte kurz warten.';
+      } else if(e.code === 'auth/network-request-failed' || e.code === 'timeout'){
+        msg = 'Keine Verbindung zu Firebase. Bitte Netzwerk und Firebase-Konfiguration prüfen.';
+      } else {
+        msg = 'E-Mail oder Passwort ist falsch. (Code: ' + (e.code || 'unbekannt') + ')';
       }
-      $$('login-error').textContent = msg;
+      showLoginError(msg);
     } finally {
       btn.textContent = 'Anmelden';
       btn.disabled    = false;
@@ -207,6 +212,20 @@ function bindLogin(){
   };
   $$('login-password').addEventListener('keydown', e => { if(e.key==='Enter' && !$$('btn-login').disabled) $$('btn-login').click(); });
   $$('btn-logout').onclick = () => signOut(auth);
+}
+
+function showLoginError(msg){
+  const el = $$('login-error');
+  if(el){ el.textContent = msg; }
+  /* longer toast for auth errors so they're readable */
+  const wrap = $$('toast-wrap');
+  if(wrap){
+    const t = document.createElement('div');
+    t.className = 'toast error';
+    t.textContent = msg;
+    wrap.appendChild(t);
+    setTimeout(() => t.remove(), 6000);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1124,7 +1143,8 @@ onAuthStateChanged(auth, user => {
     loadProjects();
   } else {
     showView('login');
-    $$('btn-login').textContent = 'Anmelden';
+    const btn = $$('btn-login');
+    if(btn){ btn.textContent = 'Anmelden'; btn.disabled = false; }
   }
 });
 
