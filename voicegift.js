@@ -123,7 +123,7 @@ function setText(id, v){ const el=$$(id); if(el) el.textContent=String(v); }
 
 function showView(name){
   ['view-login','view-projects','view-create','view-dashboard']
-    .forEach(v => v === 'view-'+name ? show('view-'+name) : hide('view-'+name));
+    .forEach(v => v === 'view-'+name ? show(v) : hide(v));
   if(name === 'login'){ hide('vg-nav'); }
   else { show('vg-nav'); }
   if(name === 'dashboard'){ show('btn-back-projects'); } else { hide('btn-back-projects'); }
