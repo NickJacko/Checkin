@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f43f5e">
+<title>VoiceGift Private 🎁</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg:#0f0a0a; --bg2:#170e0e; --bg3:#1f1515; --bg4:#281a1a;
+  --surf:rgba(255,240,240,.045); --surf2:rgba(255,240,240,.08);
+  --bdr:rgba(220,160,160,.1); --bdr2:rgba(220,160,160,.2);
+  --rose:#f43f5e; --rose2:#fb7185; --roseglow:rgba(244,63,94,.28);
+  --amber:#f59e0b; --amber2:#fbbf24; --amberglow:rgba(245,158,11,.25);
+  --green:#22d3a0; --greenglow:rgba(34,211,160,.2);
+  --red:#f87171; --redbg:rgba(248,113,113,.15);
+  --tx:#fdf2f8; --tx2:#c9a8b0; --tx3:#7a5560;
+  --r:12px; --rsm:8px; --rlg:20px; --rxl:28px;
+  --t:.2s;
+  --navh:58px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;scroll-behavior:smooth}
+body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100%;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+input,select,textarea{font-family:inherit;color:var(--tx)}
+a{color:inherit;text-decoration:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:rgba(244,63,94,.35);border-radius:3px}
+.hidden{display:none!important}
+
+/* ── COMMON CONTROLS ── */
+.btn {
+  display:inline-flex;align-items:center;justify-content:center;gap:.45rem;
+  padding:.65rem 1.35rem;border-radius:var(--r);font-size:.92rem;font-weight:700;
+  transition:all var(--t);border:none;cursor:pointer;white-space:nowrap;
+}
+.btn-rose{background:linear-gradient(135deg,var(--rose),#e11d48);color:#fff;box-shadow:0 4px 18px var(--roseglow)}
+.btn-rose:hover{transform:translateY(-2px);box-shadow:0 7px 24px var(--roseglow)}
+.btn-amber{background:linear-gradient(135deg,var(--amber),#d97706);color:#fff;box-shadow:0 4px 18px var(--amberglow)}
+.btn-amber:hover{transform:translateY(-2px)}
+.btn-ghost{background:var(--surf2);border:1px solid var(--bdr2);color:var(--tx2)}
+.btn-ghost:hover{border-color:var(--rose);color:var(--tx)}
+.btn-danger{background:var(--redbg);border:1px solid rgba(248,113,113,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(248,113,113,.25)}
+.btn-sm{padding:.4rem .9rem;font-size:.8rem;border-radius:var(--rsm)}
+.btn-icon{width:36px;height:36px;border-radius:var(--rsm);padding:0;font-size:1.1rem;background:var(--surf2);border:1px solid var(--bdr)}
+.btn-icon:hover{border-color:var(--rose);color:var(--rose)}
+
+input,textarea,select {
+  width:100%;background:var(--bg3);border:1px solid var(--bdr2);
+  border-radius:var(--rsm);padding:.65rem 1rem;color:var(--tx);
+  font-size:.95rem;transition:border-color var(--t),box-shadow var(--t);
+}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--rose);box-shadow:0 0 0 3px var(--roseglow)}
+select option{background:var(--bg3)}
+textarea{resize:vertical;min-height:80px}
+label{display:block;font-size:.8rem;font-weight:600;color:var(--tx2);margin-bottom:.4rem;letter-spacing:.03em}
+.form-group{margin-bottom:1.1rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+
+.chip {
+  display:inline-flex;align-items:center;gap:.3rem;
+  padding:.2rem .65rem;border-radius:99px;font-size:.75rem;font-weight:700;
+}
+.chip-rose{background:var(--roseglow);color:var(--rose2)}
+.chip-amber{background:var(--amberglow);color:var(--amber2)}
+.chip-green{background:var(--greenglow);color:var(--green)}
+.chip-gray{background:var(--surf2);color:var(--tx3)}
+
+/* ── TOP NAV ── */
+.vg-nav {
+  position:sticky;top:0;z-index:200;
+  display:flex;align-items:center;gap:.75rem;
+  height:var(--navh);padding:0 1.5rem;
+  background:rgba(15,10,10,.92);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--bdr);
+}
+.vg-brand{display:flex;align-items:center;gap:.5rem;font-weight:900;font-size:1.1rem}
+.vg-brand-icon{font-size:1.5rem}
+.vg-brand-text{background:linear-gradient(135deg,var(--rose2),var(--amber2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-spacer{flex:1}
+.nav-back-btn{display:flex;align-items:center;gap:.35rem;font-size:.88rem;color:var(--tx2);padding:.35rem .75rem;border-radius:var(--rsm);border:1px solid var(--bdr);transition:all var(--t)}
+.nav-back-btn:hover{color:var(--tx);border-color:var(--bdr2)}
+
+/* ── VIEWS ── */
+.vg-view{min-height:calc(100vh - var(--navh));padding:0}
+
+/* ── LOGIN VIEW ── */
+#view-login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.login-box {
+  background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--rxl);
+  padding:2.5rem 2rem;max-width:400px;width:100%;
+  box-shadow:0 20px 80px rgba(0,0,0,.5);
+}
+.login-hero{text-align:center;margin-bottom:2rem}
+.login-hero .lh-icon{font-size:3.5rem;display:block;margin-bottom:.75rem;animation:float 3s ease-in-out infinite}
+.login-hero h1{font-size:1.75rem;font-weight:900;background:linear-gradient(135deg,var(--rose2),var(--amber2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem}
+.login-hero p{font-size:.88rem;color:var(--tx2)}
+#login-error{font-size:.83rem;color:var(--red);text-align:center;margin-top:.75rem;min-height:1.2em}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ── MAIN WRAPPER ── */
+.vg-main{max-width:1100px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;gap:1rem;flex-wrap:wrap}
+.page-header h1{font-size:1.6rem;font-weight:900}
+.page-header p{font-size:.88rem;color:var(--tx2);margin-top:.2rem}
+
+/* ── PROJECTS GRID ── */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem}
+.project-card {
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--rlg);
+  padding:1.5rem;cursor:pointer;transition:all var(--t);position:relative;overflow:hidden;
+  border-top:3px solid var(--rose);
+}
+.project-card::before{content:'';position:absolute;top:-50px;right:-50px;width:140px;height:140px;border-radius:50%;background:var(--rose);filter:blur(55px);opacity:.18;pointer-events:none}
+.project-card:hover{transform:translateY(-4px);border-color:var(--rose);box-shadow:0 12px 40px var(--roseglow)}
+.pc-header{display:flex;align-items:flex-start;gap:1rem;margin-bottom:1rem}
+.pc-icon{font-size:2rem;flex-shrink:0}
+.pc-info{flex:1}
+.pc-name{font-size:1.1rem;font-weight:800;line-height:1.2}
+.pc-occasion{font-size:.78rem;color:var(--tx2);margin-top:.25rem}
+.pc-meta{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+.pc-count{font-size:.82rem;color:var(--tx2)}
+.pc-count strong{color:var(--rose2);font-weight:800}
+.pc-date{font-size:.72rem;color:var(--tx3)}
+
+.empty-state{text-align:center;padding:4rem 2rem;color:var(--tx2)}
+.empty-state .es-icon{font-size:3.5rem;display:block;margin-bottom:1rem}
+.empty-state h3{font-size:1.25rem;font-weight:800;color:var(--tx);margin-bottom:.5rem}
+
+/* ── CREATE PROJECT FORM ── */
+.form-card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--rlg);padding:2rem}
+.form-card h2{font-size:1.3rem;font-weight:800;margin-bottom:1.5rem;display:flex;align-items:center;gap:.5rem}
+
+/* ── DASHBOARD ── */
+.dash-hero {
+  background:linear-gradient(135deg,#1f0f14 0%,#1a0d15 50%,#1f1009 100%);
+  border-bottom:1px solid var(--bdr);padding:1.75rem 1.5rem 0;
+  position:relative;overflow:hidden;
+}
+.dash-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 20% 50%,rgba(244,63,94,.18),transparent 60%),radial-gradient(circle at 80% 50%,rgba(245,158,11,.12),transparent 60%);pointer-events:none}
+.dash-hero-inner{max-width:1100px;margin:0 auto;position:relative}
+.dash-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}
+.dash-title{font-size:1.4rem;font-weight:900}
+.dash-subtitle{font-size:.83rem;color:var(--tx2);margin-top:.2rem}
+.invite-box {
+  display:flex;align-items:center;gap:.6rem;
+  background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);
+  border-radius:var(--r);padding:.6rem 1rem;flex-wrap:wrap;
+}
+.invite-url{font-size:.78rem;color:var(--tx2);word-break:break-all;flex:1}
+.dash-tabs{display:flex;gap:0;border-bottom:none;margin-top:.5rem}
+.dash-tab {
+  padding:.65rem 1.25rem;font-size:.88rem;font-weight:700;color:var(--tx3);
+  border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all var(--t);white-space:nowrap;
+}
+.dash-tab:hover{color:var(--tx2)}
+.dash-tab.active{color:var(--rose2);border-bottom-color:var(--rose)}
+.dash-tab-count{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:99px;background:var(--roseglow);color:var(--rose2);font-size:.65rem;margin-left:.3rem}
+
+/* ── TAB CONTENTS ── */
+.tab-content{padding:1.5rem 0}
+
+/* ── RECORDINGS LIST ── */
+.rec-toolbar{display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.rec-count{font-size:.82rem;color:var(--tx2)}
+.rec-list{display:flex;flex-direction:column;gap:.75rem}
+.rec-item {
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:1rem 1.15rem;display:flex;align-items:center;gap:1rem;
+  transition:border-color var(--t);
+}
+.rec-item:hover{border-color:var(--bdr2)}
+.rec-item.pinned{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.04)}
+.rec-drag-handle{color:var(--tx3);cursor:grab;font-size:1.1rem;flex-shrink:0;user-select:none}
+.rec-drag-handle:active{cursor:grabbing}
+.rec-info{flex:1;min-width:0}
+.rec-name{font-weight:700;font-size:.97rem;display:flex;align-items:center;gap:.5rem}
+.rec-meta{font-size:.75rem;color:var(--tx3);margin-top:.2rem}
+.rec-note{font-size:.78rem;color:var(--tx2);font-style:italic;margin-top:.2rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-controls{display:flex;align-items:center;gap:.4rem;flex-shrink:0}
+.rec-play-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--rose),#e11d48);color:#fff;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all var(--t);flex-shrink:0}
+.rec-play-btn:hover{transform:scale(1.08);box-shadow:0 4px 14px var(--roseglow)}
+.rec-play-btn.playing{background:linear-gradient(135deg,var(--amber),#d97706)}
+
+/* ── PARTICIPANTS TAB ── */
+.parts-section{margin-bottom:2rem}
+.parts-section h3{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.75rem}
+.part-item{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:.8rem 1rem;display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+.part-avatar{width:36px;height:36px;border-radius:50%;background:var(--roseglow);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;font-weight:800;color:var(--rose2)}
+.part-name{flex:1;font-weight:600;font-size:.9rem}
+.part-date{font-size:.72rem;color:var(--tx3)}
+.add-participant-row{display:flex;gap:.5rem;margin-top:.75rem}
+.add-participant-row input{flex:1}
+
+/* ── INVITE TEXTS ── */
+.invite-texts{display:flex;flex-direction:column;gap:.75rem;margin-top:1.25rem}
+.invite-text-card{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:1rem}
+.invite-text-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-bottom:.5rem}
+.invite-text-body{font-size:.85rem;color:var(--tx2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+
+/* ── STUDIO TAB ── */
+.studio-section{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.25rem;margin-bottom:1.25rem}
+.studio-section h3{font-size:.97rem;font-weight:800;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.studio-audio-row{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.studio-player{flex:1;min-width:180px}
+.studio-player audio{width:100%;height:36px}
+.studio-record-btn{min-width:140px}
+.recording-indicator{display:inline-flex;align-items:center;gap:.45rem;font-size:.82rem;color:var(--red);font-weight:700}
+.recording-dot{width:9px;height:9px;border-radius:50%;background:var(--red);animation:pulse-rec 1.2s infinite}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.3}}
+.order-list{display:flex;flex-direction:column;gap:.5rem}
+.order-item{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--rsm);padding:.6rem .9rem;display:flex;align-items:center;gap:.75rem;font-size:.88rem}
+.order-badge{font-size:.72rem;font-weight:700;padding:.15rem .5rem;border-radius:99px;background:var(--roseglow);color:var(--rose2);white-space:nowrap}
+.order-controls{display:flex;gap:.25rem;margin-left:auto}
+.slider-row{display:flex;align-items:center;gap:.75rem;margin-top:.75rem}
+.slider-row label{font-size:.8rem;color:var(--tx2);min-width:140px;margin:0}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--bg4);border:none;padding:0;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--rose);cursor:pointer}
+.slider-val{font-size:.8rem;color:var(--rose2);font-weight:700;min-width:40px;text-align:right}
+.export-progress{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:1.5rem;text-align:center;margin-top:1rem}
+.export-progress p{font-size:.9rem;color:var(--tx2);margin-top:.6rem;font-weight:500}
+.export-bar{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:.85rem}
+.export-bar-fill{height:100%;background:linear-gradient(90deg,var(--rose),var(--amber));border-radius:3px;transition:width .4s ease}
+.export-result{background:rgba(34,211,160,.07);border:1px solid rgba(34,211,160,.3);border-radius:var(--r);padding:1.5rem;margin-top:1rem}
+.export-result h4{color:var(--green);font-size:1.05rem;font-weight:800;margin-bottom:.85rem}
+
+/* ── SETTINGS TAB ── */
+.settings-section{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem}
+.settings-section h3{font-size:.9rem;font-weight:800;margin-bottom:1rem;color:var(--tx2)}
+.danger-zone{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.03)}
+
+/* ── CUSTOM PROMPTS ── */
+.prompt-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem}
+.prompt-item{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--rsm);padding:.6rem .9rem;display:flex;align-items:flex-start;gap:.75rem;font-size:.85rem;color:var(--tx2);line-height:1.5}
+.prompt-item-text{flex:1}
+
+/* ── GIFT PAGE CREATOR ── */
+.gift-preview{background:linear-gradient(135deg,#1f0810 0%,#170c19 100%);border:1px solid rgba(244,63,94,.25);border-radius:var(--rlg);padding:2rem;text-align:center;margin-top:1rem}
+.gift-preview-icon{font-size:3rem;display:block;margin-bottom:1rem}
+
+/* ── MINI PLAYER ── */
+.mini-audio{display:none}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
+.toast{
+  background:var(--bg3);border:1px solid var(--bdr2);border-radius:var(--r);
+  padding:.75rem 1.25rem;font-size:.85rem;font-weight:600;
+  display:flex;align-items:center;gap:.5rem;pointer-events:all;
+  animation:toast-in .25s ease,toast-out .3s ease 2.7s forwards;
+  max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.toast.success{border-color:rgba(34,211,160,.4);color:var(--green)}
+.toast.error{border-color:rgba(248,113,113,.4);color:var(--red)}
+.toast.info{border-color:rgba(244,63,94,.3);color:var(--rose2)}
+@keyframes toast-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toast-out{to{opacity:0;transform:translateX(20px)}}
+
+/* ── MODAL ── */
+.vg-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:800;backdrop-filter:blur(8px);padding:1rem}
+.vg-modal.hidden{display:none}
+.vg-modal-box{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--rxl);padding:2rem;max-width:500px;width:100%;animation:pop-in .3s cubic-bezier(.4,0,.2,1);max-height:90vh;overflow-y:auto}
+@keyframes pop-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.modal-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem}
+.modal-header h2{font-size:1.2rem;font-weight:800;flex:1}
+
+/* ── PARTICIPANTS GRID ── */
+.parts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .vg-main{padding:1.25rem 1rem 3rem}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .rec-controls{flex-wrap:wrap}
+  .dash-tabs{overflow-x:auto;padding-bottom:0}
+  .form-row{grid-template-columns:1fr}
+  .parts-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ── TOP NAV (shown after login) ── -->
+<nav class="vg-nav hidden" id="vg-nav">
+  <div class="vg-brand">
+    <span class="vg-brand-icon">🎁</span>
+    <span class="vg-brand-text">VoiceGift</span>
+  </div>
+  <button class="nav-back-btn hidden" id="btn-back-projects">← Alle Projekte</button>
+  <div class="nav-spacer"></div>
+  <button class="btn btn-ghost btn-sm" id="btn-logout">Abmelden</button>
+</nav>
+
+<!-- ═══ VIEW: LOGIN ═══ -->
+<div id="view-login">
+  <div class="login-box">
+    <div class="login-hero">
+      <span class="lh-icon">🎁</span>
+      <h1>VoiceGift Private</h1>
+      <p>Sammle Stimmen. Schenke Gefühle.</p>
+    </div>
+    <div class="form-group">
+      <label>E-Mail</label>
+      <input type="email" id="login-email" placeholder="deine@email.de" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Passwort</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-rose" style="width:100%" id="btn-login">Anmelden</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: PROJECTS ═══ -->
+<div id="view-projects" class="vg-view hidden">
+  <div class="vg-main">
+    <div class="page-header">
+      <div>
+        <h1>🎁 Meine Geschenk-Projekte</h1>
+        <p>Erstelle Audio-Geschenke für besondere Menschen in deinem Leben.</p>
+      </div>
+      <button class="btn btn-rose" id="btn-create-project">+ Neues Geschenk</button>
+    </div>
+    <div id="projects-grid" class="projects-grid">
+      <div class="empty-state">
+        <span class="es-icon">🎙</span>
+        <h3>Noch kein Projekt</h3>
+        <p>Erstelle dein erstes Audio-Geschenk und sammle Stimmen von Freunden und Familie.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: CREATE PROJECT ═══ -->
+<div id="view-create" class="vg-view hidden">
+  <div class="vg-main">
+    <div class="page-header">
+      <div>
+        <h1>🎁 Neues Geschenk erstellen</h1>
+        <p>Fülle die Details aus – Gäste sehen nur den Empfängernamen und deinen Hinweis.</p>
+      </div>
+    </div>
+    <div class="form-card">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Name des Empfängers *</label>
+          <input type="text" id="create-recipient" placeholder="z.B. Mama, Jonas, Lena …">
+        </div>
+        <div class="form-group">
+          <label>Anlass *</label>
+          <select id="create-occasion">
+            <option value="geburtstag">🎂 Geburtstag</option>
+            <option value="hochzeit">💍 Hochzeit</option>
+            <option value="abschied">👋 Abschied</option>
+            <option value="ruhestand">🌅 Ruhestand</option>
+            <option value="jubilaeum">🏅 Jubiläum</option>
+            <option value="genesung">💛 Gute Besserung</option>
+            <option value="anderes">✨ Anderes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Übergabedatum (optional)</label>
+          <input type="date" id="create-delivery">
+        </div>
+        <div class="form-group">
+          <label>Sprache der Prompts</label>
+          <select id="create-language">
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="en">🇬🇧 English</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Persönliche Notiz für die Mitwirkenden (optional)</label>
+        <textarea id="create-note" placeholder="z.B. 'Mama wird 60! Sag ihr, was sie dir bedeutet. Danke von Herzen!'"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Max. Aufnahmelänge (Sekunden)</label>
+          <input type="number" id="create-maxrec" value="180" min="30" max="600">
+        </div>
+        <div class="form-group">
+          <label>Pause zwischen Beiträgen (Sekunden)</label>
+          <input type="number" id="create-pause" value="1.5" min="0" max="5" step="0.5">
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:.5rem">
+        <button class="btn btn-ghost" id="btn-cancel-create">Abbrechen</button>
+        <button class="btn btn-rose" id="btn-save-create">🎁 Projekt erstellen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VIEW: DASHBOARD ═══ -->
+<div id="view-dashboard" class="vg-view hidden">
+  <!-- Hero -->
+  <div class="dash-hero">
+    <div class="dash-hero-inner">
+      <div class="dash-title-row">
+        <div>
+          <div class="dash-title" id="dash-title">Projekt</div>
+          <div class="dash-subtitle" id="dash-subtitle"></div>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-amber btn-sm" id="btn-copy-link">📋 Link kopieren</button>
+        </div>
+      </div>
+      <div class="invite-box" id="dash-invite-box">
+        <span style="font-size:.75rem;color:var(--tx3);flex-shrink:0">🔗 Einladungslink:</span>
+        <span class="invite-url" id="dash-invite-url"></span>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-link-2">Kopieren</button>
+      </div>
+      <div class="dash-tabs">
+        <button class="dash-tab active" data-tab="recordings">🎙 Aufnahmen <span class="dash-tab-count" id="tab-count-rec">0</span></button>
+        <button class="dash-tab" data-tab="participants">👥 Teilnehmer</button>
+        <button class="dash-tab" data-tab="studio">🎛 Studio</button>
+        <button class="dash-tab" data-tab="settings">⚙ Einstellungen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="vg-main">
+
+    <!-- ── TAB: AUFNAHMEN ── -->
+    <div class="tab-content" id="tab-recordings">
+      <div class="rec-toolbar">
+        <span class="rec-count" id="rec-count-label">0 Aufnahmen</span>
+      </div>
+      <div id="rec-list" class="rec-list">
+        <div class="empty-state" style="padding:3rem 0">
+          <span class="es-icon">🎙</span>
+          <h3>Noch keine Aufnahmen</h3>
+          <p>Teile den Einladungslink – Freunde und Familie können dann hier aufnehmen.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: TEILNEHMER ── -->
+    <div class="tab-content hidden" id="tab-participants">
+      <div class="parts-grid">
+
+        <div>
+          <div class="parts-section">
+            <h3>📬 Einladungstexte</h3>
+            <p style="font-size:.85rem;color:var(--tx2);margin-bottom:1rem">Fertige Texte zum Kopieren und Versenden – per WhatsApp, Signal, E-Mail oder SMS.</p>
+            <div class="invite-texts" id="invite-texts-container"></div>
+          </div>
+
+          <div class="parts-section">
+            <h3>➕ Person vormerken</h3>
+            <p style="font-size:.82rem;color:var(--tx2);margin-bottom:.75rem">So weißt du, wen du noch einladen oder erinnern möchtest.</p>
+            <div class="add-participant-row">
+              <input type="text" id="add-part-name" placeholder="Name eingeben …">
+              <button class="btn btn-rose btn-sm" id="btn-add-participant">Hinzufügen</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="parts-section">
+            <h3>✅ Hat aufgenommen</h3>
+            <div id="parts-submitted"></div>
+          </div>
+          <div class="parts-section">
+            <h3>⏳ Noch offen</h3>
+            <div id="parts-pending"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: STUDIO ── -->
+    <div class="tab-content hidden" id="tab-studio">
+
+      <!-- Intro -->
+      <div class="studio-section">
+        <h3>🎬 Intro <span style="font-size:.78rem;font-weight:400;color:var(--tx3)">(optional)</span></h3>
+        <div class="studio-audio-row">
+          <div class="studio-player" id="intro-player-wrap">
+            <audio id="intro-audio" controls style="width:100%;display:none"></audio>
+            <span style="font-size:.82rem;color:var(--tx3)" id="intro-none-label">Kein Intro</span>
+          </div>
+          <button class="btn btn-ghost btn-sm studio-record-btn" id="btn-record-intro">🎙 Aufnehmen</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">📁 Hochladen<input type="file" accept="audio/*" id="intro-upload" style="display:none"></label>
+          <button class="btn btn-danger btn-sm hidden" id="btn-remove-intro">✕</button>
+        </div>
+        <div class="hidden" id="intro-rec-ui" style="margin-top:.75rem">
+          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+            <div class="recording-indicator hidden" id="intro-rec-indicator"><span class="recording-dot"></span> Aufnahme läuft … <span id="intro-rec-time">0:00</span></div>
+            <button class="btn btn-danger btn-sm" id="btn-stop-intro-rec">⏹ Stopp</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-intro-rec">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reihenfolge -->
+      <div class="studio-section">
+        <h3>📋 Reihenfolge</h3>
+        <p style="font-size:.82rem;color:var(--tx2);margin-bottom:.75rem">Gepinnte Aufnahmen kommen zuerst. Mit ↑ ↓ kannst du die Reihenfolge anpassen.</p>
+        <div id="studio-order-list" class="order-list"></div>
+      </div>
+
+      <!-- Outro -->
+      <div class="studio-section">
+        <h3>🎬 Outro <span style="font-size:.78rem;font-weight:400;color:var(--tx3)">(optional)</span></h3>
+        <div class="studio-audio-row">
+          <div class="studio-player" id="outro-player-wrap">
+            <audio id="outro-audio" controls style="width:100%;display:none"></audio>
+            <span style="font-size:.82rem;color:var(--tx3)" id="outro-none-label">Kein Outro</span>
+          </div>
+          <button class="btn btn-ghost btn-sm studio-record-btn" id="btn-record-outro">🎙 Aufnehmen</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">📁 Hochladen<input type="file" accept="audio/*" id="outro-upload" style="display:none"></label>
+          <button class="btn btn-danger btn-sm hidden" id="btn-remove-outro">✕</button>
+        </div>
+        <div class="hidden" id="outro-rec-ui" style="margin-top:.75rem">
+          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+            <div class="recording-indicator hidden" id="outro-rec-indicator"><span class="recording-dot"></span> Aufnahme läuft … <span id="outro-rec-time">0:00</span></div>
+            <button class="btn btn-danger btn-sm" id="btn-stop-outro-rec">⏹ Stopp</button>
+            <button class="btn btn-ghost btn-sm" id="btn-cancel-outro-rec">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hintergrundmusik -->
+      <div class="studio-section">
+        <h3>🎵 Hintergrundmusik <span style="font-size:.78rem;font-weight:400;color:var(--tx3)">(optional)</span></h3>
+        <div class="studio-audio-row">
+          <div class="studio-player" id="music-player-wrap">
+            <audio id="music-audio" controls style="width:100%;display:none"></audio>
+            <span style="font-size:.82rem;color:var(--tx3)" id="music-none-label">Keine Musik</span>
+          </div>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">📁 Musik hochladen<input type="file" accept="audio/*" id="music-upload" style="display:none"></label>
+          <button class="btn btn-danger btn-sm hidden" id="btn-remove-music">✕</button>
+        </div>
+        <div class="slider-row">
+          <label>Musiklautstärke:</label>
+          <input type="range" id="music-vol" min="0" max="100" value="15" style="flex:1">
+          <span class="slider-val" id="music-vol-val">15%</span>
+        </div>
+      </div>
+
+      <!-- Export -->
+      <div class="studio-section">
+        <h3>🎧 Export</h3>
+        <div class="slider-row" style="margin-bottom:1rem">
+          <label>Pause zwischen Beiträgen:</label>
+          <input type="range" id="export-pause" min="0" max="5" value="1.5" step="0.5" style="flex:1">
+          <span class="slider-val" id="export-pause-val">1.5s</span>
+        </div>
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+          <button class="btn btn-ghost" id="btn-preview-export">▶ Vorschau hören</button>
+          <button class="btn btn-rose" id="btn-do-export">⬇ Als WAV exportieren</button>
+        </div>
+        <div id="export-progress-wrap" class="export-progress hidden">
+          <span style="font-size:1.5rem">⚙️</span>
+          <p id="export-progress-msg">Bereite Export vor …</p>
+          <div class="export-bar"><div class="export-bar-fill" id="export-bar-fill" style="width:0%"></div></div>
+        </div>
+        <div id="export-result-wrap" class="export-result hidden">
+          <h4>🎉 Dein Audio-Geschenk ist fertig!</h4>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <a class="btn btn-rose" id="export-download-btn" download="voicegift.wav">⬇ WAV herunterladen</a>
+            <button class="btn btn-ghost" id="btn-create-gift-page">🎁 Geschenkseite erstellen</button>
+          </div>
+          <div id="gift-page-box" class="hidden" style="margin-top:1rem">
+            <p style="font-size:.82rem;color:var(--tx2);margin-bottom:.5rem">Private Geschenkseite (nur über diesen Link erreichbar):</p>
+            <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+              <input type="text" id="gift-page-url" readonly style="flex:1;font-size:.82rem">
+              <button class="btn btn-amber btn-sm" id="btn-copy-gift">Kopieren</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-studio -->
+
+    <!-- ── TAB: EINSTELLUNGEN ── -->
+    <div class="tab-content hidden" id="tab-settings">
+      <div class="settings-section">
+        <h3>✏️ Projekt bearbeiten</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name des Empfängers</label>
+            <input type="text" id="settings-recipient">
+          </div>
+          <div class="form-group">
+            <label>Anlass</label>
+            <select id="settings-occasion">
+              <option value="geburtstag">🎂 Geburtstag</option>
+              <option value="hochzeit">💍 Hochzeit</option>
+              <option value="abschied">👋 Abschied</option>
+              <option value="ruhestand">🌅 Ruhestand</option>
+              <option value="jubilaeum">🏅 Jubiläum</option>
+              <option value="genesung">💛 Gute Besserung</option>
+              <option value="anderes">✨ Anderes</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Übergabedatum</label>
+            <input type="date" id="settings-delivery">
+          </div>
+          <div class="form-group">
+            <label>Sprache</label>
+            <select id="settings-language">
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Hinweis für Mitwirkende</label>
+          <textarea id="settings-note"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max. Aufnahmelänge (Sek.)</label>
+            <input type="number" id="settings-maxrec" min="30" max="600">
+          </div>
+        </div>
+        <button class="btn btn-rose btn-sm" id="btn-save-settings">Änderungen speichern</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>💬 Eigene Inspirations-Prompts</h3>
+        <div id="custom-prompts-list" class="prompt-list"></div>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="new-prompt-text" placeholder="Eigener Denkanstoß …" style="flex:1">
+          <button class="btn btn-ghost btn-sm" id="btn-add-prompt">Hinzufügen</button>
+        </div>
+      </div>
+
+      <div class="settings-section danger-zone">
+        <h3 style="color:var(--red)">⚠️ Gefahrenzone</h3>
+        <p style="font-size:.85rem;color:var(--tx2);margin-bottom:1rem">Das Löschen des Projekts entfernt alle Aufnahmen, Exporte und Daten unwiderruflich.</p>
+        <button class="btn btn-danger" id="btn-delete-project">🗑 Projekt löschen</button>
+      </div>
+    </div><!-- /tab-settings -->
+
+  </div><!-- /vg-main -->
+</div><!-- /view-dashboard -->
+
+<!-- ── MODALS ── -->
+<div class="vg-modal hidden" id="modal-confirm">
+  <div class="vg-modal-box">
+    <div class="modal-header">
+      <span style="font-size:1.8rem" id="modal-confirm-icon">⚠️</span>
+      <h2 id="modal-confirm-title">Sicher?</h2>
+    </div>
+    <p id="modal-confirm-msg" style="color:var(--tx2);font-size:.9rem;margin-bottom:1.5rem"></p>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end">
+      <button class="btn btn-ghost" id="modal-confirm-cancel">Abbrechen</button>
+      <button class="btn btn-danger" id="modal-confirm-ok">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST CONTAINER ── -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- ── HIDDEN AUDIO (for recording) ── -->
+<audio id="studio-preview-audio" class="mini-audio"></audio>
+
+<script type="module" src="voicegift.js"></script>
+</body>
+</html>

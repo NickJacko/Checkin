@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f43f5e">
+<title>Dein Audio-Geschenk 🎁</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080408; --bg2:#120a12;
+  --rose:#f43f5e; --rose2:#fb7185; --roseglow:rgba(244,63,94,.3);
+  --amber:#f59e0b; --amber2:#fbbf24;
+  --tx:#fff5f8; --tx2:#d4b8be; --tx3:#7a5565;
+  --bdr:rgba(244,63,94,.18);
+  --r:14px; --rlg:24px; --rxl:32px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;height:100%}
+body{
+  font-family:'Outfit',system-ui,sans-serif;
+  background:var(--bg);color:var(--tx);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+.hidden{display:none!important}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+
+/* ── BG GLOW ── */
+.bg-glow{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 20% 30%,rgba(244,63,94,.18) 0%,transparent 55%),
+    radial-gradient(circle at 80% 70%,rgba(245,158,11,.12) 0%,transparent 55%),
+    linear-gradient(160deg,#100608 0%,#08040c 100%);
+}
+
+/* ── PAGE ── */
+.page{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem}
+#view-gift{animation:gift-reveal .7s cubic-bezier(.4,0,.2,1)}
+@keyframes gift-reveal{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── LOADING ── */
+#view-loading{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.25rem;min-height:100vh;position:relative;z-index:1}
+.loader-icon{font-size:3rem;animation:float 2s ease-in-out infinite}
+.loader-text{font-size:.9rem;color:var(--tx2)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ── GIFT CARD ── */
+.gift-card{
+  background:rgba(20,10,16,.85);
+  backdrop-filter:blur(24px);
+  border:1px solid var(--bdr);
+  border-radius:var(--rxl);
+  padding:3rem 2.5rem;
+  max-width:540px;width:100%;
+  text-align:center;
+  box-shadow:0 24px 80px rgba(244,63,94,.15),0 0 0 1px rgba(244,63,94,.08);
+  position:relative;overflow:hidden;
+}
+.gift-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(244,63,94,.05),transparent 60%,rgba(245,158,11,.04));
+  pointer-events:none;
+}
+.gift-card-decoration{
+  position:absolute;top:-80px;right:-80px;
+  width:220px;height:220px;border-radius:50%;
+  background:var(--rose);filter:blur(80px);opacity:.12;pointer-events:none;
+}
+.gift-card-decoration-2{
+  position:absolute;bottom:-60px;left:-60px;
+  width:180px;height:180px;border-radius:50%;
+  background:var(--amber);filter:blur(70px);opacity:.1;pointer-events:none;
+}
+
+/* ── HEADER ── */
+.gift-emoji{font-size:4rem;display:block;margin-bottom:1.25rem;animation:float 3.5s ease-in-out infinite}
+.gift-from-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--tx3);margin-bottom:.3rem}
+.gift-recipient{
+  font-size:2.2rem;font-weight:900;
+  background:linear-gradient(135deg,var(--rose2) 0%,var(--amber2) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:.4rem;line-height:1.1;
+}
+.gift-occasion{font-size:.95rem;color:var(--tx2);margin-bottom:.25rem}
+.gift-date{font-size:.8rem;color:var(--tx3)}
+.gift-divider{width:60px;height:2px;background:linear-gradient(90deg,var(--rose),var(--amber));border-radius:1px;margin:1.5rem auto}
+
+/* ── PERSONAL MSG ── */
+.gift-message{
+  font-size:.95rem;color:var(--tx2);line-height:1.75;font-style:italic;
+  background:rgba(244,63,94,.05);
+  border-left:3px solid var(--rose);border-radius:0 var(--r) var(--r) 0;
+  padding:1rem 1.25rem;margin-bottom:1.75rem;
+  white-space:pre-wrap;word-break:break-word;text-align:left;
+}
+
+/* ── PLAYER ── */
+.player-wrap{margin-bottom:1.5rem}
+.player-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--tx3);margin-bottom:.75rem}
+.custom-player{background:rgba(255,255,255,.04);border:1px solid rgba(244,63,94,.18);border-radius:var(--rlg);padding:1.75rem 1.5rem}
+.player-controls{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.25rem}
+.btn-play-main{
+  width:76px;height:76px;border-radius:50%;
+  background:linear-gradient(135deg,var(--rose),#e11d48);
+  color:#fff;font-size:2rem;display:flex;align-items:center;justify-content:center;
+  transition:all .25s;box-shadow:0 6px 28px var(--roseglow);
+  flex-shrink:0;border:none;cursor:pointer;
+}
+.btn-play-main:hover{transform:scale(1.08);box-shadow:0 12px 38px var(--roseglow)}
+.btn-play-main:not(.playing){animation:gift-player-invite 3s ease-in-out infinite}
+@keyframes gift-player-invite{0%,70%,100%{box-shadow:0 6px 28px var(--roseglow)}35%{box-shadow:0 8px 36px var(--roseglow),0 0 0 10px rgba(244,63,94,.09)}}
+.btn-play-main.playing{background:linear-gradient(135deg,var(--amber),#d97706);box-shadow:0 6px 28px rgba(245,158,11,.35);animation:none}
+.player-seek-wrap{display:flex;align-items:center;gap:.75rem}
+.player-time{font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--tx2);white-space:nowrap;min-width:40px}
+.player-time.right{text-align:right}
+input[type=range].seek-bar{
+  flex:1;-webkit-appearance:none;appearance:none;
+  height:5px;border-radius:3px;border:none;cursor:pointer;
+  background:rgba(255,255,255,.12);
+}
+input[type=range].seek-bar::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;
+  border-radius:50%;background:var(--rose);cursor:pointer;
+  box-shadow:0 2px 8px var(--roseglow);
+}
+.player-volume-row{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
+.vol-icon{font-size:.95rem;color:var(--tx3)}
+input[type=range].vol-bar{
+  flex:1;-webkit-appearance:none;appearance:none;
+  height:3px;border-radius:2px;border:none;cursor:pointer;
+  background:rgba(255,255,255,.1);
+}
+input[type=range].vol-bar::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;background:var(--tx2);cursor:pointer;
+}
+
+/* ── ACTIONS ── */
+.gift-actions{display:flex;flex-direction:column;gap:.75rem}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  padding:.8rem 1.5rem;border-radius:var(--r);font-size:.95rem;font-weight:700;
+  transition:all .2s;border:none;cursor:pointer;text-decoration:none;width:100%;
+}
+.btn-rose{background:linear-gradient(135deg,var(--rose),#e11d48);color:#fff;box-shadow:0 4px 18px var(--roseglow)}
+.btn-rose:hover{transform:translateY(-2px);box-shadow:0 7px 24px var(--roseglow)}
+.btn-ghost{background:rgba(255,240,240,.05);border:1px solid rgba(220,160,160,.2);color:var(--tx2)}
+.btn-ghost:hover{border-color:var(--rose);color:var(--tx)}
+
+/* ── ERROR ── */
+#view-error{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;position:relative;z-index:1}
+.error-box{text-align:center;max-width:380px}
+.error-icon{font-size:3.5rem;display:block;margin-bottom:1rem}
+
+/* ── RESPONSIVE ── */
+@media(max-width:520px){
+  .gift-card{padding:2rem 1.5rem}
+  .gift-recipient{font-size:1.7rem}
+  .btn-play-main{width:60px;height:60px;font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<!-- LOADING -->
+<div id="view-loading">
+  <span class="loader-icon">🎁</span>
+  <p class="loader-text">Dein Geschenk wird geöffnet …</p>
+</div>
+
+<!-- ERROR -->
+<div id="view-error" class="hidden">
+  <div class="error-box">
+    <span class="error-icon">😕</span>
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:.5rem">Geschenk nicht gefunden</h2>
+    <p style="color:var(--tx2)" id="error-msg">Dieser Link ist ungültig oder das Geschenk wurde noch nicht fertiggestellt.</p>
+  </div>
+</div>
+
+<!-- GIFT VIEW -->
+<div class="page hidden" id="view-gift">
+  <div class="gift-card">
+    <div class="gift-card-decoration"></div>
+    <div class="gift-card-decoration-2"></div>
+
+    <span class="gift-emoji" id="gift-emoji">🎁</span>
+    <div class="gift-from-label" id="gift-from-label">Ein Geschenk für</div>
+    <div class="gift-recipient" id="gift-recipient">–</div>
+    <div class="gift-occasion" id="gift-occasion"></div>
+    <div class="gift-date" id="gift-date"></div>
+
+    <div class="gift-divider"></div>
+
+    <div class="gift-message hidden" id="gift-message"></div>
+
+    <div class="player-wrap">
+      <div class="player-label">🎧 Jetzt abspielen</div>
+      <div class="custom-player">
+        <div class="player-controls">
+          <button class="btn-play-main" id="btn-play-main" aria-label="Abspielen">▶</button>
+        </div>
+        <div class="player-seek-wrap">
+          <span class="player-time" id="player-current">0:00</span>
+          <input type="range" class="seek-bar" id="seek-bar" value="0" min="0" step="0.1">
+          <span class="player-time right" id="player-duration">0:00</span>
+        </div>
+        <div class="player-volume-row">
+          <span class="vol-icon">🔈</span>
+          <input type="range" class="vol-bar" id="vol-bar" value="100" min="0" max="100">
+          <span class="vol-icon">🔊</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="gift-actions">
+      <a class="btn btn-rose hidden" id="btn-download" download>⬇ Aufnahme speichern</a>
+      <p style="font-size:.72rem;color:var(--tx3);text-align:center;margin-top:.5rem" id="gift-footer">Mit 💛 für dich aufgenommen</p>
+    </div>
+  </div>
+</div>
+
+<audio id="gift-audio" preload="auto"></audio>
+
+<script type="module" src="voicegift-gift.js"></script>
+</body>
+</html>

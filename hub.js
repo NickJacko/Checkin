@@ -446,6 +446,29 @@ async function loadWizardStats() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   VOICEGIFT STATS
+═══════════════════════════════════════════════════════ */
+async function loadVoiceGiftStats() {
+  try {
+    const [pSnap, rSnap, eSnap] = await Promise.all([
+      getDocs(collection(db, 'vg_projects')),
+      getDocs(collection(db, 'vg_recordings')),
+      getDocs(collection(db, 'vg_exports')),
+    ]);
+    setText('vg-projects',  pSnap.size || '0');
+    setText('vg-recordings', rSnap.size || '0');
+    setText('vg-exports',   eSnap.size || '0');
+    if(pSnap.size > 0){
+      document.getElementById('gift-level-badge').textContent = pSnap.size + ' Projekt' + (pSnap.size!==1?'e':'');
+    }
+  } catch(_) {
+    setText('vg-projects',  '–');
+    setText('vg-recordings','–');
+    setText('vg-exports',   '–');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════ */
 async function init() {
@@ -485,6 +508,7 @@ async function init() {
       await loadCloudStates(currentUid);
       render();
       loadWizardStats();
+      loadVoiceGiftStats();
 
       /* 6. Load leaderboard mini (needs uid) */
       loadHubLeaderboard(currentUid);

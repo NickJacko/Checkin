@@ -95,6 +95,9 @@
     .world-card.wizard-world { border-top: 3px solid #7c3aed; }
     .world-card.wizard-world:hover { border-color: #7c3aed; box-shadow: 0 12px 40px rgba(124,58,237,.35); }
     .world-card.wizard-world::before { background: linear-gradient(135deg,#7c3aed,#f59e0b); }
+    .world-card.gift-world  { border-top: 3px solid #f43f5e; }
+    .world-card.gift-world:hover  { border-color: #f43f5e; box-shadow: 0 12px 40px rgba(244,63,94,.35); }
+    .world-card.gift-world::before { background: linear-gradient(135deg,#f43f5e,#f59e0b); }
 
     .world-card::before {
       content: ''; position: absolute; top: -60px; right: -60px;
@@ -326,6 +329,25 @@
           <a href="chess.html" class="world-btn" id="chess-cta">♟ Schach starten ▶</a>
         </div>
 
+        <!-- VoiceGift Private Card -->
+        <div class="world-card gift-world" id="card-gift" onclick="location.href='voicegift.html'" style="cursor:pointer">
+          <div class="world-header">
+            <span class="world-icon">🎁</span>
+            <div>
+              <div class="world-title">VoiceGift Private</div>
+              <div class="world-subtitle">Persönliche Audio-Geschenke erstellen</div>
+            </div>
+            <span class="world-level-badge" id="gift-level-badge" style="background:rgba(244,63,94,.18);color:#fb7185">Privat 🔒</span>
+          </div>
+          <div class="world-stats" id="gift-stats">
+            <div class="world-stat"><span class="world-stat-val" id="vg-projects">–</span><span class="world-stat-lbl">Projekte</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="vg-recordings">–</span><span class="world-stat-lbl">Aufnahmen</span></div>
+            <div class="world-stat"><span class="world-stat-val" id="vg-exports">–</span><span class="world-stat-lbl">Exporte</span></div>
+          </div>
+          <div class="world-last">Stimmen sammeln · Audio-Geschenk erstellen · Teilen</div>
+          <a href="voicegift.html" class="world-btn" style="background:linear-gradient(135deg,#f43f5e,#f59e0b);color:#fff;box-shadow:0 4px 16px rgba(244,63,94,.4)">🎁 VoiceGift öffnen ▶</a>
+        </div>
+
         <!-- Wizard Arena Card -->
         <div class="world-card wizard-world" id="card-wizard" onclick="location.href='wizard.html'" style="cursor:pointer">
           <div class="world-header">
@@ -411,7 +433,7 @@
 
   <!-- FOOTER -->
   <footer class="hub-footer">
-    <p>LearnHub &copy; 2025 · Powered by Firebase · <a href="typemaster.html" style="color:var(--accent);text-decoration:none">TypeMaster</a> · <a href="chess.html" style="color:var(--green);text-decoration:none">ChessMaster</a></p>
+    <p>LearnHub &copy; 2025 · Powered by Firebase · <a href="typemaster.html" style="color:var(--accent);text-decoration:none">TypeMaster</a> · <a href="chess.html" style="color:var(--green);text-decoration:none">ChessMaster</a> · <a href="voicegift.html" style="color:#fb7185;text-decoration:none">🎁 VoiceGift</a></p>
   </footer>
 
   <!-- SYNC MODAL -->

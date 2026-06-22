@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f43f5e">
+<title>Sprachnachricht aufnehmen 🎙</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0f0a0a; --bg2:#170e0e; --bg3:#1f1515;
+  --rose:#f43f5e; --rose2:#fb7185; --roseglow:rgba(244,63,94,.28);
+  --amber:#f59e0b; --amber2:#fbbf24;
+  --green:#22d3a0; --greenglow:rgba(34,211,160,.2);
+  --tx:#fdf2f8; --tx2:#c9a8b0; --tx3:#7a5560;
+  --bdr:rgba(220,160,160,.12); --bdr2:rgba(220,160,160,.22);
+  --r:14px; --rsm:9px; --rlg:22px;
+  --t:.2s;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;scroll-behavior:smooth}
+body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100%;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button{cursor:pointer;font-family:inherit;border:none;background:none}
+input,textarea{font-family:inherit;color:var(--tx)}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:rgba(244,63,94,.3);border-radius:2px}
+.hidden{display:none!important}
+
+/* ── LAYOUT ── */
+.page{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 1rem;background:linear-gradient(160deg,#120808 0%,#0f0a14 100%)}
+.card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--rlg);padding:2rem;max-width:480px;width:100%;margin:2rem 0;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:var(--rose);filter:blur(70px);opacity:.12;pointer-events:none}
+
+/* ── HEADER ── */
+.gift-header{text-align:center;margin-bottom:1.25rem}
+.gift-emoji{font-size:3rem;display:block;margin-bottom:.75rem;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.gift-for{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin-bottom:.2rem}
+.gift-name{font-size:1.9rem;font-weight:900;background:linear-gradient(135deg,var(--rose2),var(--amber2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.3rem;line-height:1.15}
+.gift-occasion{font-size:.9rem;color:var(--tx2)}
+
+/* ── CONTEXT INTRO ── */
+.gift-context{font-size:.84rem;color:var(--tx2);text-align:center;line-height:1.6;margin:1rem 0 1.5rem;padding:.6rem .75rem;background:rgba(255,255,255,.025);border:1px solid var(--bdr);border-radius:var(--rsm)}
+
+/* ── NOTE ── */
+.admin-note{background:rgba(244,63,94,.06);border-left:3px solid var(--rose);border-radius:0 var(--r) var(--r) 0;padding:1rem 1.15rem;margin-bottom:1.5rem;font-size:.88rem;color:var(--tx2);line-height:1.65;font-style:italic}
+
+/* ── PROMPT ── */
+.prompt-box{background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.18);border-radius:var(--r);padding:1rem 2.2rem 1rem 1.15rem;margin-bottom:1.5rem;position:relative}
+.prompt-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--amber);margin-bottom:.4rem}
+.prompt-text{font-size:.97rem;color:var(--tx);line-height:1.6;font-weight:500}
+.prompt-refresh{position:absolute;top:.75rem;right:.75rem;width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--tx3);transition:all var(--t);font-size:1rem;border-radius:50%}
+.prompt-refresh:hover{color:var(--amber);transform:rotate(180deg);background:rgba(245,158,11,.1)}
+
+/* ── FORM ── */
+.form-group{margin-bottom:1.1rem}
+label{display:block;font-size:.8rem;font-weight:600;color:var(--tx2);margin-bottom:.4rem}
+input[type=text],textarea{
+  width:100%;background:var(--bg3);border:1px solid var(--bdr2);
+  border-radius:var(--rsm);padding:.7rem 1rem;color:var(--tx);
+  font-size:.95rem;transition:border-color var(--t),box-shadow var(--t);
+}
+input[type=text]:focus,textarea:focus{outline:none;border-color:var(--rose);box-shadow:0 0 0 3px var(--roseglow)}
+textarea{resize:vertical;min-height:68px}
+
+/* ── RECORDER ── */
+.recorder-wrap{display:flex;flex-direction:column;align-items:center;gap:1.1rem;margin:1.5rem 0}
+.rec-big-btn{
+  width:96px;height:96px;border-radius:50%;
+  background:linear-gradient(135deg,var(--rose),#e11d48);
+  color:#fff;font-size:2.4rem;display:flex;align-items:center;justify-content:center;
+  transition:transform .25s, box-shadow .25s;
+  box-shadow:0 6px 28px var(--roseglow);
+  position:relative;border:none;cursor:pointer;
+}
+.rec-big-btn:hover{transform:scale(1.07);box-shadow:0 12px 38px var(--roseglow)}
+.rec-big-btn:not(.recording):not(.paused):not(.has-recording){animation:idle-invite 2.8s ease-in-out infinite}
+.rec-big-btn.recording{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:pulse-big 1.2s infinite}
+.rec-big-btn.paused{background:linear-gradient(135deg,var(--amber),#d97706);animation:none}
+.rec-big-btn.has-recording{background:linear-gradient(135deg,var(--green),#059669);animation:none}
+@keyframes idle-invite{0%,70%,100%{box-shadow:0 6px 28px var(--roseglow)}35%{box-shadow:0 8px 36px var(--roseglow),0 0 0 10px rgba(244,63,94,.09)}}
+@keyframes pulse-big{0%,100%{box-shadow:0 6px 28px rgba(220,38,38,.4)}50%{box-shadow:0 8px 36px rgba(220,38,38,.7),0 0 0 14px rgba(220,38,38,.1)}}
+.rec-timer{font-size:2.2rem;font-weight:900;font-variant-numeric:tabular-nums;color:var(--tx);letter-spacing:.05em}
+.rec-timer.over-limit{color:var(--rose)}
+.rec-max-hint{font-size:.73rem;color:var(--tx3);text-align:center}
+.rec-state-label{font-size:.85rem;color:var(--tx2);font-weight:600;text-align:center;line-height:1.4}
+
+/* ── SECONDARY CONTROLS ── */
+.rec-secondary{display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.6rem 1.2rem;border-radius:var(--r);font-size:.88rem;font-weight:700;transition:all var(--t);border:none;cursor:pointer;white-space:nowrap}
+.btn-rose{background:linear-gradient(135deg,var(--rose),#e11d48);color:#fff;box-shadow:0 4px 18px var(--roseglow)}
+.btn-rose:hover{transform:translateY(-2px)}
+.btn-ghost{background:rgba(255,240,240,.06);border:1px solid var(--bdr2);color:var(--tx2)}
+.btn-ghost:hover{border-color:var(--rose);color:var(--tx)}
+.btn-lg{padding:.9rem 2rem;font-size:1.05rem;border-radius:var(--rlg)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+
+/* ── PLAYBACK ── */
+.playback-wrap{background:var(--bg3);border:1px solid var(--bdr);border-radius:var(--r);padding:1rem;margin-bottom:1rem}
+.playback-wrap audio{width:100%;border-radius:6px}
+/* ── SUBMIT SECTION ── */
+.submit-section{margin-top:.5rem}
+.submit-name-required{font-size:.78rem;color:var(--rose2);margin-top:.25rem}
+
+/* ── THANK YOU VIEW ── */
+#view-thanks{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;background:linear-gradient(160deg,#120808 0%,#0f0a14 100%)}
+.thanks-box{text-align:center;max-width:440px;animation:thanks-in .55s cubic-bezier(.4,0,.2,1)}
+@keyframes thanks-in{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+.thanks-icon{font-size:4.5rem;display:block;margin-bottom:1.25rem;animation:float 3.5s ease-in-out infinite}
+.thanks-title{font-size:2.2rem;font-weight:900;background:linear-gradient(135deg,var(--rose2),var(--amber2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.75rem}
+.thanks-sub{font-size:1.05rem;color:var(--tx2);line-height:1.7;margin-bottom:1.75rem}
+
+/* ── ERROR / LOADING ── */
+#view-error{display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem}
+.error-box{max-width:380px}
+.error-icon{font-size:3.5rem;display:block;margin-bottom:1rem}
+
+/* ── UPLOAD PROGRESS ── */
+.upload-progress{text-align:center;padding:1rem}
+.upload-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:1rem 0}
+.upload-bar-fill{height:100%;background:linear-gradient(90deg,var(--rose),var(--amber));border-radius:3px;transition:width .3s}
+
+/* ── PLAYBACK LABEL ── */
+.playback-label{font-size:.72rem;color:var(--tx3);margin-bottom:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+
+/* ── RESPONSIVE ── */
+@media(max-width:480px){
+  .card{padding:1.5rem 1.25rem;margin:1.25rem 0}
+  .gift-name{font-size:1.55rem}
+  .rec-big-btn{width:86px;height:86px;font-size:2.2rem}
+  .rec-timer{font-size:1.9rem}
+  .thanks-title{font-size:1.9rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ── LOADING ── -->
+<div id="view-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:1rem">
+  <span style="font-size:3rem;animation:float 2s ease-in-out infinite">🎙</span>
+  <p style="color:var(--tx2)">Einen Moment …</p>
+</div>
+
+<!-- ── ERROR ── -->
+<div id="view-error" class="hidden">
+  <div class="error-box">
+    <span class="error-icon">😕</span>
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:.5rem">Einladung nicht gefunden</h2>
+    <p style="color:var(--tx2)" id="error-msg">Dieser Link ist ungültig oder abgelaufen. Bitte melde dich bei der Person, die dich eingeladen hat.</p>
+  </div>
+</div>
+
+<!-- ── RECORD VIEW ── -->
+<div id="view-record" class="page hidden">
+  <div class="card">
+    <!-- Header -->
+    <div class="gift-header">
+      <span class="gift-emoji" id="rec-emoji">🎁</span>
+      <div class="gift-for" id="rec-for-label">Nachricht für</div>
+      <div class="gift-name" id="rec-gift-name">–</div>
+      <div class="gift-occasion" id="rec-occasion">–</div>
+    </div>
+
+    <!-- Context intro (filled by JS) -->
+    <div class="gift-context" id="rec-context-line">Hinterlasse hier eine kurze Sprachnachricht – direkt im Browser, ohne App oder Login.</div>
+
+    <!-- Admin Note -->
+    <div class="admin-note hidden" id="rec-admin-note"></div>
+
+    <!-- Prompt -->
+    <div class="prompt-box">
+      <div class="prompt-label">💡 Denkanstoß</div>
+      <div class="prompt-text" id="rec-prompt-text">Wird geladen …</div>
+      <button class="prompt-refresh" id="btn-new-prompt" aria-label="Andere Frage anzeigen" title="Andere Frage">↺</button>
+    </div>
+
+    <!-- Name -->
+    <div class="form-group">
+      <label>Wie heißt du?</label>
+      <input type="text" id="rec-name" placeholder="Dein Name" maxlength="60" autocomplete="given-name">
+    </div>
+
+    <!-- Recorder -->
+    <div class="recorder-wrap">
+      <div class="rec-state-label" id="rec-state-label">Tippe auf den Knopf, um zu beginnen</div>
+      <button class="rec-big-btn" id="btn-rec-main" aria-label="Aufnahme starten">🎙</button>
+      <div class="rec-timer" id="rec-timer">0:00</div>
+      <div class="rec-max-hint" id="rec-max-hint">Max. 3:00</div>
+      <div class="rec-secondary" id="rec-secondary-btns">
+        <button class="btn btn-ghost hidden" id="btn-rec-pause">⏸ Pause</button>
+        <button class="btn btn-ghost hidden" id="btn-rec-stop">⏹ Fertig</button>
+        <button class="btn btn-ghost hidden" id="btn-rec-restart">↺ Nochmal aufnehmen</button>
+      </div>
+    </div>
+
+    <!-- Playback (after recording) -->
+    <div id="rec-playback" class="playback-wrap hidden">
+      <div class="playback-label">Deine Aufnahme:</div>
+      <audio id="rec-playback-audio" controls></audio>
+    </div>
+
+    <!-- Note -->
+    <div class="form-group">
+      <label>Noch etwas hinzufügen? (optional)</label>
+      <textarea id="rec-note" placeholder="Alles weitere, was du mitgeben möchtest …" rows="2"></textarea>
+    </div>
+
+    <!-- Submit -->
+    <div class="submit-section">
+      <button class="btn btn-rose btn-lg" style="width:100%;margin-top:.25rem" id="btn-submit" disabled>💛 Sprachnachricht absenden</button>
+      <div class="submit-name-required hidden" id="submit-name-hint">Bitte gib noch deinen Namen ein.</div>
+    </div>
+
+    <!-- Upload progress -->
+    <div id="upload-progress" class="upload-progress hidden">
+      <p style="font-size:.88rem;color:var(--tx2)">Deine Stimme wird übermittelt …</p>
+      <div class="upload-bar"><div class="upload-bar-fill" id="upload-bar-fill" style="width:30%"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── THANK YOU VIEW ── -->
+<div id="view-thanks" class="hidden">
+  <div class="thanks-box">
+    <span class="thanks-icon">💌</span>
+    <h1 class="thanks-title">Danke schön!</h1>
+    <p class="thanks-sub" id="thanks-msg">Deine Stimme macht dieses Geschenk unvergesslich.</p>
+    <p style="font-size:.82rem;color:var(--tx3);line-height:1.6">Du kannst dieses Fenster jetzt schließen.</p>
+  </div>
+</div>
+
+<script type="module" src="voicegift-record.js"></script>
+</body>
+</html>
